@@ -1,0 +1,97 @@
+# 情感音频建模完整配置文件
+experiment:
+  name: "emotion_audio_modeling"
+  output_dir: "outputs"
+  log_level: "INFO"
+
+# 数据处理配置
+data_processing:
+  # Whisper配置
+  whisper:
+    model_size: "base"  # tiny, base, small, medium, large
+    language: "zh"  # 中文
+  
+  # Emotion2Vec配置
+  emotion2vec:
+    model_path: "emotion2vec_base"
+    feature_dim: 768
+  
+  # 音素转换配置
+  phoneme:
+    language: "zh"
+    g2p_model: "pypinyin"  # 可切换不同的音素转换器
+
+# VQ-VAE情感量化器配置 (作用于整个B阶段的输入)
+emotion_quantizer:
+  enabled: true  # 开关：是否启用VQ-VAE量化实验
+  type: "vqvae"  # vqvae | identity
+  input_dim: 768  # emotion2vec特征维度
+  embedding_dim: 64  # 量化空间维度
+  commitment_loss_weight: 0.25
+  codebook_sizes: [64, 128, 256, 512, 1024]  # 支持的码本大小
+
+# 阶段A配置 (内容音素 -> M0)
+stage_a:
+  model_type: "fastspeech2"  # 可切换: fastspeech2, tacotron2, etc
+  model_config:
+    d_model: 256
+    n_layers: 6
+    n_heads: 8
+    dropout: 0.1
+  
+  training:
+    batch_size: 32
+    learning_rate: 1e-4
+    epochs: 100
+    checkpoint_interval: 10
+
+# 阶段B配置 (包含B1和B2两个子阶段)
+stage_b:
+  model_type: "two_stage_emotion"  # 两阶段情感模型
+  model_config:
+    emotion_dim: 768  # emotion2vec特征维度
+    mel_dim: 80
+    hidden_dim: 512
+    n_layers: 4
+    enable_b2: true  # 是否启用B2阶段（扩散细化）
+    diffusion_steps: 20  # B2阶段的扩散步数
+  
+  training:
+    batch_size: 16
+    learning_rate: 5e-5
+    epochs: 50
+
+# 声码器配置
+vocoder:
+  model_type: "hifigan"  # 可切换: hifigan, melgan, waveglow
+  model_config:
+    sampling_rate: 22050
+    hop_length: 256
+    win_length: 1024
+    n_mel_channels: 80
+
+# 数据集配置
+dataset:
+  # 训练数据
+  train_data:
+    audio_dir: "data/train/audio"
+    text_dir: "data/train/text"  # 可选，如果有转写文本
+  
+  # 测试数据 (ESD)
+  test_data:
+    audio_dir: "data/test/esd/audio"
+    text_dir: "data/test/esd/text"
+    emotion_labels: "data/test/esd/labels.csv"
+
+# 评估配置
+evaluation:
+  metrics: ["mel_loss", "emotion_similarity", "content_preservation"]
+  save_audio_samples: true
+  num_test_samples: 100
+  
+  # VQ-VAE实验配置
+  vq_vae_experiment:
+    enabled: true
+    test_all_codebook_sizes: true  # 测试所有可用的码本大小
+    test_both_stages: true  # 同时测试B1和B2阶段
+    save_comparison_report: true
