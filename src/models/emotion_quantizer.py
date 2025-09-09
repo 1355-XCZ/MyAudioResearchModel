@@ -91,6 +91,15 @@ class VQVAEEmotionQuantizer(EmotionQuantizer):
         
         return decoded.detach().cpu().numpy(), total_loss.item()
     
+    def train_codebook(self, emotion_dataset: List[np.ndarray]) -> None:
+        """
+        训练码本（占位实现）
+        具体训练方法在后续实现时确定
+        """
+        print("码本训练功能待实现...")
+        # TODO: 实现码本训练逻辑
+        pass
+    
     def experiment_codebook_sizes(self, emotion_features: np.ndarray) -> Dict[int, Tuple[np.ndarray, float]]:
         """
         实验不同码本大小的效果
@@ -218,15 +227,16 @@ class IdentityQuantizer(EmotionQuantizer):
         self.codebook_sizes = config.get('codebook_sizes', [64, 128, 256, 512, 1024])
     
     def quantize(self, emotion_features: np.ndarray, codebook_size: int) -> Tuple[np.ndarray, float]:
-        """
-        恒等量化：直接返回输入特征
-        """
+        """恒等量化：直接返回输入特征"""
         return emotion_features.copy(), 0.0
     
+    def train_codebook(self, emotion_dataset: List[np.ndarray]) -> None:
+        """恒等量化器不需要训练"""
+        print("恒等量化器无需训练")
+        pass
+    
     def experiment_codebook_sizes(self, emotion_features: np.ndarray) -> Dict[int, Tuple[np.ndarray, float]]:
-        """
-        恒等实验：所有码本大小都返回相同的输入特征
-        """
+        """恒等实验：所有码本大小都返回相同的输入特征"""
         results = {}
         for codebook_size in self.codebook_sizes:
             results[codebook_size] = (emotion_features.copy(), 0.0)

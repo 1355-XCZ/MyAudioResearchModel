@@ -138,7 +138,7 @@ def stage_comparison_example():
         m0_output = pipeline.stage_a_model.forward(processed.phonemes)
         m0_audio = pipeline.vocoder.synthesize(m0_output.mel_spectrogram)
         output_path = os.path.join(pipeline.output_dir, 'stage_a_only.wav')
-        pipeline._save_audio(m0_audio, output_path, test_audio.sample_rate)
+        pipeline._save_audio(m0_audio, output_path, processed.source_audio.sample_rate)
         print(f"阶段A音频已保存到: {output_path}")
         
         # 2. 阶段A + B1（带情感）

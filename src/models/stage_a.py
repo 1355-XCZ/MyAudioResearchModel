@@ -29,13 +29,12 @@ class FastSpeech2StageA(StageAModel):
         self.n_heads = self.model_config.get('n_heads', 8)
         self.dropout = self.model_config.get('dropout', 0.1)
         
+        # 音素到索引的映射需要先初始化，再构建模型
+        self.phoneme_to_idx = self._build_phoneme_vocab()
         # 构建模型
         self.model = self._build_model()
         self.optimizer = None
         self.criterion = nn.MSELoss()
-        
-        # 音素到索引的映射
-        self.phoneme_to_idx = self._build_phoneme_vocab()
         
     def _build_phoneme_vocab(self) -> Dict[str, int]:
         """构建音素词汇表"""
@@ -101,7 +100,7 @@ class FastSpeech2StageA(StageAModel):
         
         # 解析批次数据
         phoneme_sequences = batch_data['phonemes']  # List[List[str]]
-        target_mels = batch_data['mel_spectrograms']  # torch.Tensor (batch, mel_dim, time)
+        target_mels = batch_data['mel_spectrograms']  # torch.Tensor (batch, time, mel_dim) 或 (batch, mel_dim, time)
         
         # 转换音素为索引
         batch_phoneme_indices = []
@@ -117,10 +116,11 @@ class FastSpeech2StageA(StageAModel):
         # 前向传播
         mel_outputs, attention_weights = self.model(batch_phoneme_indices)
         
-        # 计算损失
-        # 需要调整维度匹配
-        if target_mels.dim() == 3:  # (batch, mel_dim, time)
-            target_mels = target_mels.transpose(1, 2)  # (batch, time, mel_dim)
+        # 计算损失：对齐为 (batch, time, mel_dim)
+        if target_mels.dim() == 3:
+            # 如果是 (batch, mel_dim, time)，则转置到 (batch, time, mel_dim)
+            if hasattr(self.model, 'mel_dim') and target_mels.size(1) == self.model.mel_dim:
+                target_mels = target_mels.transpose(1, 2)
         
         loss = self.criterion(mel_outputs, target_mels)
         

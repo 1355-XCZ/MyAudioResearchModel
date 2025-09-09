@@ -12,6 +12,10 @@ openai-whisper>=20230314
 transformers>=4.20.0
 datasets>=2.0.0
 
+# Emotion2Vec模型支持
+modelscope>=1.9.0
+funasr>=1.0.0
+
 # 中文音素处理
 pypinyin>=0.47.0
 

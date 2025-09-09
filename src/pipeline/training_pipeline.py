@@ -11,7 +11,7 @@ import logging
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
-from ..core.interfaces import Pipeline, DataProcessor, StageAModel, StageBModel, Vocoder, EmotionQuantizer, AudioData
+from ..core.interfaces import Pipeline, DataProcessor, StageAModel, StageBModel, Vocoder, EmotionQuantizer, AudioData, ProcessedData
 from ..data_processing.audio_processor import WhisperEmotionProcessor, DatasetLoader
 from ..models.stage_a import FastSpeech2StageA
 from ..models.stage_b import TwoStageEmotionModel

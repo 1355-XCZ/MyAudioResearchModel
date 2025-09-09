@@ -22,8 +22,8 @@ class ProcessedData:
     """处理后的数据结构"""
     phonemes: List[str]  # 音素序列
     emotion_features: np.ndarray  # emotion2vec特征
+    source_audio: AudioData  # 原始音频数据引用
     text: Optional[str] = None  # 原始文本（如果有）
-    audio_path: Optional[str] = None
 
 
 @dataclass
@@ -95,6 +95,14 @@ class EmotionQuantizer(ABC):
         量化情感特征
         输入: emotion2vec表征, 码本大小
         输出: (量化后的特征, 重建损失)
+        """
+        pass
+    
+    @abstractmethod
+    def train_codebook(self, emotion_dataset: List[np.ndarray]) -> None:
+        """
+        训练码本（具体方法由实现决定）
+        输入: 情感特征数据集
         """
         pass
     
@@ -203,9 +211,23 @@ class Pipeline(ABC):
         pass
     
     @abstractmethod
-    def inference(self, audio_data: AudioData, use_quantizer: bool = False, 
+    def train_quantizer(self, emotion_dataset: List[np.ndarray]) -> None:
+        """训练量化器（如果启用的话）"""
+        pass
+    
+    @abstractmethod
+    def inference(self, input_data, use_quantizer: bool = False, 
                  codebook_size: Optional[int] = None, use_b2: bool = False) -> np.ndarray:
-        """推理生成音频"""
+        """
+        推理生成音频
+        Args:
+            input_data: AudioData 或 ProcessedData
+            use_quantizer: 是否使用VQ-VAE量化器
+            codebook_size: VQ-VAE码本大小
+            use_b2: 是否使用B2阶段
+        Returns:
+            重建的音频波形
+        """
         pass
     
     @abstractmethod
