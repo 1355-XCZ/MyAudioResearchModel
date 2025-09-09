@@ -10,6 +10,7 @@ data_processing:
   whisper:
     model_size: "base"  # 模型大小: tiny, base, small, medium, large
     language: "zh"      # 语言设置
+    use_whisper_when_no_text: true  # 只在没有配套文本时使用Whisper
   
   # Emotion2Vec情感特征提取配置
   emotion2vec:
@@ -22,6 +23,14 @@ data_processing:
   phoneme:
     language: "zh"           # 语言
     g2p_model: "pypinyin"    # 音素转换器类型
+
+# 音素词汇表配置
+phoneme_vocab:
+  source: "pypinyin_auto"    # 词汇表来源: pypinyin_auto | config_file | external_file
+  # 如果使用config_file，在这里列出音素
+  # phonemes: ['<PAD>', '<UNK>', 'ni3', 'hao3', ...]
+  # 如果使用external_file，指定文件路径
+  # vocab_file: "config/phoneme_vocab.txt"
 
 # VQ-VAE情感量化器配置 (位于B阶段之前，量化情感输入)
 emotion_quantizer:
@@ -38,7 +47,8 @@ emotion_quantizer:
 
 # 阶段A配置: 音素 -> M0 (中性Mel频谱)
 stage_a:
-  model_type: "fastspeech2"  # TTS模型类型
+  model_type: "tts_model"              # 通用TTS模型类型
+  tts_architecture: "fastspeech2"      # 具体TTS架构: fastspeech2, tacotron2, vits
   model_config:
     d_model: 256    # 模型维度
     n_layers: 6     # Transformer层数
@@ -69,23 +79,63 @@ stage_b:
 
 # 声码器配置: Mel频谱 -> 音频
 vocoder:
-  model_type: "hifigan"  # 声码器类型
+  model_type: "hifigan"  # 声码器类型: hifigan, hifigan_custom, hifigan_nvidia, melgan, bigvgan_22khz, bigvgan_24khz, bigvgan_44khz
   model_config:
     sampling_rate: 22050    # 采样率
     hop_length: 256         # 帧移
     win_length: 1024        # 窗长
     n_mel_channels: 80      # Mel通道数
+    
+    # NVIDIA HiFi-GAN专用配置 (当使用hifigan_nvidia时)
+    # model_name: "nvidia/tts_hifigan"  # NVIDIA预训练模型名称
+    
+    # BigVGAN专用配置 (当使用BigVGAN时)
+    # version: "22khz"      # BigVGAN版本: 22khz, 24khz, 44khz
+    
+# 声码器配置示例:
+
+# 1. NVIDIA预训练HiFi-GAN (推荐，高质量):
+# vocoder:
+#   model_type: "hifigan_nvidia"
+#   model_config:
+#     model_name: "nvidia/tts_hifigan"
+
+# 2. 自定义HiFi-GAN (轻量级):
+# vocoder:
+#   model_type: "hifigan_custom"  # 或直接使用 "hifigan"
+#   model_config:
+#     sampling_rate: 22050
+
+# 3. BigVGAN声码器 (世界级质量):
+# vocoder:
+#   model_type: "bigvgan_22khz"  # 22kHz版本 (与现有系统兼容)
+#   model_config:
+#     version: "22khz"
+#     
+# vocoder:
+#   model_type: "bigvgan_24khz"  # 24kHz版本 (更高质量)
+#   model_config:
+#     version: "24khz"
+#     
+# vocoder:
+#   model_type: "bigvgan_44khz"  # 44kHz版本 (最高质量)
+#   model_config:
+#     version: "44khz"
 
 # 数据集路径配置
 dataset:
   # 训练数据路径
   train_data:
     audio_dir: "data/train/audio"     # 训练音频目录
-    text_dir: "data/train/text"       # 训练文本目录 (可选)
+    text_source: "txt_files"          # 配套文本来源: txt_files | csv | json | none
+    text_dir: "data/train/text"       # 训练文本目录 (当text_source为txt_files时使用)
+    csv_file: "data/train/annotations.csv"  # CSV标注文件路径（如果使用CSV）
+    text_column: "text"               # CSV中的文本列名
   
   # 测试数据路径 (推荐使用ESD数据集)
   test_data:
     audio_dir: "data/test/esd/audio"           # 测试音频目录
+    text_source: "txt_files"                   # 配套文本来源
     text_dir: "data/test/esd/text"             # 测试文本目录
     emotion_labels: "data/test/esd/labels.csv" # 情感标签文件
 

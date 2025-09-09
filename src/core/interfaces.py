@@ -2,7 +2,7 @@
 核心接口定义，支持模块化实验设计
 """
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Tuple, Optional, List
+from typing import Dict, Any, Tuple, Optional, List, Union
 import torch
 import numpy as np
 from dataclasses import dataclass
@@ -59,15 +59,28 @@ class DataProcessor(ABC):
 
 
 class StageAModel(ABC):
-    """阶段A模型抽象基类: 内容音素 -> M0"""
+    """阶段A模型抽象基类: 文本/音素 -> M0"""
     
     @abstractmethod
-    def forward(self, phonemes: List[str]) -> ModelOutput:
+    def forward(self, input_data: Union[ProcessedData, List[str], str]) -> ModelOutput:
         """
-        前向传播
-        输入: 内容音素
+        灵活的前向传播接口
+        支持三种输入：
+        1. ProcessedData对象（智能选择text或phonemes）
+        2. List[str] 音素序列
+        3. str 文本字符串
         输出: M0 (中性Mel频谱)
         """
+        pass
+    
+    @abstractmethod
+    def forward_from_text(self, text: str) -> ModelOutput:
+        """从文本直接生成Mel频谱"""
+        pass
+    
+    @abstractmethod
+    def forward_from_phonemes(self, phonemes: List[str]) -> ModelOutput:
+        """从音素序列生成Mel频谱"""
         pass
     
     @abstractmethod

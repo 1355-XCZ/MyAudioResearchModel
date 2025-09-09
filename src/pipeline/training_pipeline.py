@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 
 from ..core.interfaces import Pipeline, DataProcessor, StageAModel, StageBModel, Vocoder, EmotionQuantizer, AudioData, ProcessedData
 from ..data_processing.audio_processor import WhisperEmotionProcessor, DatasetLoader
-from ..models.stage_a import FastSpeech2StageA
+from ..models.stage_a import TTSStageAModel
 from ..models.stage_b import TwoStageEmotionModel
 from ..models.vocoder import VocoderFactory
 from ..models.emotion_quantizer import create_emotion_quantizer
@@ -77,10 +77,10 @@ class EmotionAudioPipeline(Pipeline):
     def _create_stage_a_model(self) -> StageAModel:
         """创建阶段A模型"""
         stage_a_config = self.config.get('stage_a', {})
-        model_type = stage_a_config.get('model_type', 'fastspeech2')
+        model_type = stage_a_config.get('model_type', 'tts_model')
         
-        if model_type.lower() == 'fastspeech2':
-            return FastSpeech2StageA(stage_a_config)
+        if model_type.lower() in ['tts_model', 'fastspeech2']:
+            return TTSStageAModel(stage_a_config)
         else:
             raise ValueError(f"不支持的阶段A模型类型: {model_type}")
     
@@ -134,24 +134,28 @@ class EmotionAudioPipeline(Pipeline):
         
         self.logger.info("训练完成")
     
-    def _preprocess_training_data(self, train_data: List[AudioData]) -> List[Dict[str, Any]]:
+    def _preprocess_training_data(self, train_data: List[Tuple[AudioData, Optional[str]]]) -> List[Dict[str, Any]]:
         """预处理训练数据"""
         self.logger.info("预处理训练数据...")
         processed_data = []
         
-        for audio_data in tqdm(train_data, desc="预处理音频"):
+        for audio_data, provided_text in tqdm(train_data, desc="预处理音频"):
             try:
-                # 使用数据处理器提取特征
-                processed = self.data_processor.process_audio(audio_data)
+                # 使用数据处理器提取特征（传入配套文本）
+                processed = self.data_processor.process_audio(audio_data, provided_text)
                 
                 # 提取目标Mel频谱
                 target_mel = self._extract_mel_spectrogram(audio_data)
                 
                 processed_data.append({
+                    'processed_data': processed,  # 包含完整的ProcessedData对象
                     'phonemes': processed.phonemes,
                     'emotion_features': processed.emotion_features,
+                    'text': processed.text,
+                    'has_provided_text': provided_text is not None,
+                    'text_source': 'provided' if provided_text else 'whisper',
                     'target_mel': target_mel,
-                    'audio_path': processed.audio_path
+                    'audio_path': audio_data.file_path
                 })
             except Exception as e:
                 self.logger.warning(f"处理音频失败 {audio_data.file_path}: {e}")
@@ -197,8 +201,9 @@ class EmotionAudioPipeline(Pipeline):
             for i in range(0, len(processed_data), batch_size):
                 batch = processed_data[i:i+batch_size]
                 
-                # 准备批次数据
+                # 准备批次数据 - 使用新的ProcessedData结构
                 batch_data = {
+                    'processed_data_list': [item['processed_data'] for item in batch],
                     'phonemes': [item['phonemes'] for item in batch],
                     'mel_spectrograms': torch.stack([
                         torch.tensor(item['target_mel'], dtype=torch.float32) 
@@ -286,8 +291,8 @@ class EmotionAudioPipeline(Pipeline):
                 # 使用阶段A和B1生成M1
                 batch_m1 = []
                 for item in batch:
-                    # A阶段: 音素 -> M0
-                    m0_output = self.stage_a_model.forward(item['phonemes'])
+                    # A阶段: 使用ProcessedData -> M0
+                    m0_output = self.stage_a_model.forward(item['processed_data'])
                     # B1阶段: M0 + 情感 -> M1
                     m1_output = self.stage_b_model.forward_b1(
                         m0_output.mel_spectrogram, item['emotion_features']
@@ -328,8 +333,8 @@ class EmotionAudioPipeline(Pipeline):
         # 数据预处理
         processed = self.data_processor.process_audio(audio_data)
         
-        # 阶段A: 音素 -> M0
-        m0_output = self.stage_a_model.forward(processed.phonemes)
+        # 阶段A: ProcessedData -> M0
+        m0_output = self.stage_a_model.forward(processed)
         
         # 情感特征处理
         emotion_features = processed.emotion_features
@@ -526,19 +531,19 @@ def main():
     # 如果有测试数据，运行推理
     test_data = pipeline.dataset_loader.load_test_data()
     if test_data:
-        # 选择一个测试样本
-        test_sample = test_data[0]
+        # 选择一个测试样本（现在是tuple）
+        test_sample_data, test_text = test_data[0]
         
         # 运行推理
-        reconstructed_audio = pipeline.inference(test_sample)
+        reconstructed_audio = pipeline.inference(test_sample_data)
         
         # 保存结果
         output_path = os.path.join(pipeline.output_dir, 'inference_result.wav')
-        pipeline._save_audio(reconstructed_audio, output_path, test_sample.sample_rate)
+        pipeline._save_audio(reconstructed_audio, output_path, test_sample_data.sample_rate)
         
         # 运行VQ-VAE实验
         if pipeline.emotion_quantizer is not None:
-            pipeline.run_vq_vae_experiment(test_sample)
+            pipeline.run_vq_vae_experiment(test_sample_data)
 
 
 if __name__ == "__main__":

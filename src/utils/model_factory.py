@@ -8,7 +8,7 @@ from ..core.interfaces import (
     Vocoder, EmotionQuantizer
 )
 from ..data_processing.audio_processor import WhisperEmotionProcessor
-from ..models.stage_a import FastSpeech2StageA
+from ..models.stage_a import TTSStageAModel
 from ..models.stage_b import TwoStageEmotionModel
 from ..models.vocoder import VocoderFactory
 from ..models.emotion_quantizer import create_emotion_quantizer
@@ -31,13 +31,16 @@ class DefaultModelFactory(ModelFactory):
     
     def create_stage_a_model(self, config: Dict[str, Any]) -> StageAModel:
         """创建阶段A模型"""
-        model_type = config.get('model_type', 'fastspeech2')
+        model_type = config.get('model_type', 'tts_model')
         
-        if model_type.lower() == 'fastspeech2':
-            return FastSpeech2StageA(config)
-        # 可以在这里添加其他阶段A模型
-        # elif model_type.lower() == 'tacotron2':
-        #     return Tacotron2StageA(config)
+        if model_type.lower() == 'tts_model':
+            return TTSStageAModel(config)
+        # 保持向后兼容
+        elif model_type.lower() == 'fastspeech2':
+            # 如果配置文件还在使用旧的model_type，自动转换
+            config_copy = config.copy()
+            config_copy['tts_architecture'] = 'fastspeech2'
+            return TTSStageAModel(config_copy)
         else:
             raise ValueError(f"不支持的阶段A模型类型: {model_type}")
     

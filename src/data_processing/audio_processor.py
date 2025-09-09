@@ -57,14 +57,18 @@ class WhisperEmotionProcessor(DataProcessor):
                 self.emotion_pipeline = None
                 self.emotion_model = None
     
-    def process_audio(self, audio_data: AudioData) -> ProcessedData:
+    def process_audio(self, audio_data: AudioData, provided_text: Optional[str] = None) -> ProcessedData:
         """
         处理音频数据
-        输入: 音频数据
+        输入: 音频数据 + 可选的配套文本
         输出: (内容音素, emotion2vec表征)
+        
+        Args:
+            audio_data: 音频数据
+            provided_text: 可选的配套文本（如果有则直接使用，没有则用Whisper提取）
         """
-        # 提取音素和文本
-        phonemes, recognized_text = self.extract_phonemes(audio_data)
+        # 提取音素和文本（优先使用提供的文本）
+        phonemes, final_text = self.extract_phonemes(audio_data, provided_text)
         
         # 提取情感特征
         emotion_features = self.extract_emotion_features(audio_data)
@@ -73,26 +77,31 @@ class WhisperEmotionProcessor(DataProcessor):
             phonemes=phonemes,
             emotion_features=emotion_features,
             source_audio=audio_data,
-            text=recognized_text
+            text=final_text  # 存储最终的文本（提供的或Whisper识别的）
         )
     
-    def extract_phonemes(self, audio_data: AudioData, text: Optional[str] = None) -> Tuple[List[str], str]:
+    def extract_phonemes(self, audio_data: AudioData, provided_text: Optional[str] = None) -> Tuple[List[str], str]:
         """
         提取音素
         如果提供了文本，直接使用；否则使用Whisper进行语音识别
-        返回: (音素列表, 识别的文本)
+        返回: (音素列表, 最终使用的文本)
         """
-        if text is None:
+        if provided_text is not None:
+            # 优先使用提供的文本
+            final_text = provided_text.strip()
+            print(f"✅ 使用配套文本: {final_text[:50]}...")
+        else:
             # 使用Whisper进行语音识别
             result = self.whisper_model.transcribe(
                 audio_data.waveform,
                 language=self.config.get('whisper', {}).get('language', 'zh')
             )
-            text = result["text"]
+            final_text = result["text"]
+            print(f"🎤 Whisper识别文本: {final_text[:50]}...")
         
         # 转换为音素
-        phonemes = self._text_to_phonemes(text)
-        return phonemes, text
+        phonemes = self._text_to_phonemes(final_text)
+        return phonemes, final_text
     
     def _text_to_phonemes(self, text: str) -> List[str]:
         """
@@ -261,30 +270,71 @@ class DatasetLoader:
         self.config = config
         self.audio_loader = AudioLoader()
     
-    def load_train_data(self) -> List[AudioData]:
-        """加载训练数据"""
+    def load_train_data(self) -> List[Tuple[AudioData, Optional[str]]]:
+        """
+        加载训练数据
+        返回: [(音频数据, 配套文本), ...]
+        配套文本可以来自：
+        1. 同名txt文件 (audio.wav -> audio.txt)
+        2. CSV标注文件
+        3. JSON标注文件
+        """
         train_config = self.config.get('train_data', {})
         audio_dir = train_config.get('audio_dir')
+        text_source = train_config.get('text_source', 'txt_files')  # txt_files | csv | json | none
         
-        audio_files = []
+        data_pairs = []
         if audio_dir and os.path.exists(audio_dir):
             for file_name in os.listdir(audio_dir):
                 if file_name.endswith(('.wav', '.mp3', '.flac')):
                     file_path = os.path.join(audio_dir, file_name)
-                    audio_files.append(self.audio_loader.load_audio(file_path))
+                    audio_data = self.audio_loader.load_audio(file_path)
+                    
+                    # 寻找配套文本
+                    provided_text = self._find_paired_text(file_path, text_source)
+                    data_pairs.append((audio_data, provided_text))
         
-        return audio_files
+        return data_pairs
     
-    def load_test_data(self) -> List[AudioData]:
+    def _find_paired_text(self, audio_path: str, text_source: str) -> Optional[str]:
+        """寻找音频的配套文本"""
+        if text_source == 'txt_files':
+            # 同名txt文件
+            txt_path = audio_path.rsplit('.', 1)[0] + '.txt'
+            if os.path.exists(txt_path):
+                try:
+                    with open(txt_path, 'r', encoding='utf-8') as f:
+                        text = f.read().strip()
+                        if text:
+                            return text
+                except Exception as e:
+                    print(f"警告：读取文本文件失败 {txt_path}: {e}")
+        elif text_source == 'csv':
+            # 从CSV文件读取（需要实现）
+            # TODO: 实现CSV文件读取逻辑
+            pass
+        elif text_source == 'json':
+            # 从JSON文件读取（需要实现）  
+            # TODO: 实现JSON文件读取逻辑
+            pass
+        
+        return None  # 没有配套文本，将使用Whisper提取
+    
+    def load_test_data(self) -> List[Tuple[AudioData, Optional[str]]]:
         """加载测试数据（ESD数据集）"""
         test_config = self.config.get('test_data', {})
         audio_dir = test_config.get('audio_dir')
+        text_source = test_config.get('text_source', 'txt_files')
         
-        audio_files = []
+        data_pairs = []
         if audio_dir and os.path.exists(audio_dir):
             for file_name in os.listdir(audio_dir):
                 if file_name.endswith(('.wav', '.mp3', '.flac')):
                     file_path = os.path.join(audio_dir, file_name)
-                    audio_files.append(self.audio_loader.load_audio(file_path))
+                    audio_data = self.audio_loader.load_audio(file_path)
+                    
+                    # 寻找配套文本
+                    provided_text = self._find_paired_text(file_path, text_source)
+                    data_pairs.append((audio_data, provided_text))
         
-        return audio_files
+        return data_pairs
