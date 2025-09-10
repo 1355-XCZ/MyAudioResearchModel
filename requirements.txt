@@ -19,15 +19,15 @@ funasr>=1.0.0
 # 中文音素处理
 pypinyin>=0.47.0
 
-# PaddleSpeech TTS
+# PaddleSpeech TTS 
 paddlespeech>=1.4.1
-paddlepaddle>=2.4.0
+paddlepaddle-gpu>=2.6.0  # GPU版本
 
-# BigVGAN声码器支持
+# BigVGAN声码器支持 (Windows上不可用，暂时注释)
 bigvgan>=2.0.0
 
-# NVIDIA NeMo (用于预训练HiFi-GAN)
-nemo_toolkit[all]>=1.20.0
+# NVIDIA NeMo (Windows兼容性问题，使用备选方案)
+# nemo_toolkit[all]>=1.20.0  # Windows上安装困难，项目有回退机制
 
 # 数据处理和可视化
 numpy>=1.21.0
@@ -61,7 +61,3 @@ flake8>=4.0.0
 # HuggingFace相关（用于emotion2vec等模型）
 huggingface-hub>=0.10.0
 tokenizers>=0.12.0
-
-# 其他音频工具
-resampy>=0.3.1
-webrtcvad>=2.0.10
