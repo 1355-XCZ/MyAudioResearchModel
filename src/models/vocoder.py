@@ -271,8 +271,12 @@ class NVIDIAHiFiGANVocoder(Vocoder):
 
 class BigVGANVocoder(Vocoder):
     """
-    NVIDIA BigVGAN声码器实现
+    NVIDIA BigVGAN声码器实现（新架构）
     支持44kHz, 24kHz, 22kHz三个版本
+    新增功能：
+    1. 从音频提取Mel频谱（用于阶段A）
+    2. 从Mel频谱合成音频（用于最终输出）
+    3. 确保提取和合成使用相同参数
     """
     
     # 预定义的BigVGAN模型配置
@@ -436,6 +440,43 @@ class BigVGANVocoder(Vocoder):
         else:
             print(f"BigVGAN模型将从HuggingFace Hub自动下载: {self.model_name}")
     
+    def extract_mel_from_audio(self, audio: np.ndarray) -> torch.Tensor:
+        """
+        从音频提取Mel频谱（新架构功能）
+        用于阶段A：音频 → 标准化Mel频谱
+        确保与synthesize使用相同参数
+        """
+        if self.model is None:
+            raise RuntimeError("BigVGAN模型未正确加载")
+        
+        try:
+            # 确保音频格式正确
+            if len(audio.shape) == 1:
+                audio = audio[np.newaxis, :]  # (1, samples)
+            
+            # 转换为tensor
+            wav_tensor = torch.FloatTensor(audio).to(self.model.device)
+            
+            # 使用BigVGAN的Mel提取函数
+            from bigvgan import get_mel_spectrogram
+            mel = get_mel_spectrogram(wav_tensor, self.model.h)
+            
+            print(f"BigVGAN提取Mel: {mel.shape} (参数一致性保证)")
+            return mel
+            
+        except Exception as e:
+            print(f"BigVGAN Mel提取失败: {e}")
+            raise RuntimeError(f"Mel提取失败: {e}")
+    
+    def get_mel_config(self) -> Dict[str, Any]:
+        """获取Mel提取/合成的参数配置"""
+        return {
+            'sampling_rate': self.sampling_rate,
+            'hop_length': self.hop_length,
+            'n_mel_channels': self.n_mel_channels,
+            'version': self.version
+        }
+    
     def get_model_info(self) -> Dict[str, Any]:
         """获取当前BigVGAN模型信息"""
         return {
@@ -444,7 +485,8 @@ class BigVGANVocoder(Vocoder):
             'sampling_rate': self.sampling_rate,
             'hop_length': self.hop_length,
             'n_mel_channels': self.n_mel_channels,
-            'model_loaded': self.model is not None
+            'model_loaded': self.model is not None,
+            'supports_mel_extraction': True  # 新架构标志
         }
 
 

@@ -23,7 +23,7 @@ class ProcessedData:
     phonemes: List[str]  # 音素序列
     emotion_features: np.ndarray  # emotion2vec特征
     source_audio: AudioData  # 原始音频数据引用
-    text: Optional[str] = None  # 原始文本（如果有）
+    text: str  # 文本内容（提供的文本或Whisper识别的文本）
 
 
 @dataclass
@@ -39,11 +39,15 @@ class DataProcessor(ABC):
     """数据处理器抽象基类"""
     
     @abstractmethod
-    def process_audio(self, audio_data: AudioData) -> ProcessedData:
+    def process_audio(self, audio_data: AudioData, provided_text: Optional[str] = None) -> ProcessedData:
         """
         处理音频数据
-        输入: 音频数据
-        输出: (内容音素, emotion2vec表征)
+        输入: 音频数据 + 可选的配套文本
+        输出: (内容音素, emotion2vec表征, 文本)
+        
+        Args:
+            audio_data: 音频数据
+            provided_text: 可选的配套文本（如果有则直接使用，没有则用Whisper提取）
         """
         pass
     

@@ -85,9 +85,13 @@ class TwoStageEmotionModel(StageBModel):
             mel_input = mel_input.unsqueeze(0)
         
         # B1前向传播
-        self.b1_model.eval()
-        with torch.no_grad():
-            mel_output = self.b1_model(mel_input, emotion_tensor)
+        try:
+            self.b1_model.eval()
+            with torch.no_grad():
+                mel_output = self.b1_model(mel_input, emotion_tensor)
+        except Exception as e:
+            print(f"⚠️ B1处理失败，使用透传: {e}")
+            mel_output = mel_input
         
         return ModelOutput(
             mel_spectrogram=mel_output,

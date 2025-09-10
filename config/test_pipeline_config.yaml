@@ -1,0 +1,36 @@
+# 测试流水线配置文件
+# 专为test_complete_pipeline.py设计的简化配置
+
+# 数据处理配置
+data_processing:
+  whisper_config:
+    model_size: "base"
+    language: "zh"
+    device: "auto"
+  emotion_config:
+    model_path: "iic/emotion2vec_base"
+    feature_dim: 768
+    device: "auto"
+
+# 阶段A配置
+stage_a:
+  target_sampling_rate: 22050
+  tts_engine_priority:
+    - "simple_synthesis"
+
+# 声码器配置
+vocoder:
+  bigvgan:
+    model_config:
+      version: "22khz"
+      model_name: "nvidia/bigvgan_v2_22khz_80band_fmax8k_256x"
+      sampling_rate: 22050
+      hop_length: 256
+      n_mel_channels: 80
+
+# 测试配置
+test:
+  output_dir: "outputs/complete_pipeline_test"
+  save_intermediate_results: true
+  audio_formats: [".wav", ".mp3", ".flac", ".ogg"]
+  test_audio_files: ["test_audio.wav", "test.wav", "sample.wav", "demo.wav"]

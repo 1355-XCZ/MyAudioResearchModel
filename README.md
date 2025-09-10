@@ -10,7 +10,7 @@
 - 在不应用VQ-VAE码本或码本很大的情况下，重建的音频应该和原始音频相似
 - 随着VQ-VAE码本大小K逐渐减小，细腻情感会逐渐丢失，只保留主要或基础情感
 
-### 系统架构
+### 核心架构理念
 
 ```
 原始音频 P
@@ -30,6 +30,33 @@
 声码器: Mel频谱 → 重建音频
 ```
 
+### 实际数据处理流程
+
+在实现中，为了确保参数一致性和模块解耦，采用了以下数据处理流程：
+
+```
+原始音频 P
+    ↓
+数据处理阶段: Whisper提取文字 + Emotion2Vec提取情感特征
+    ↓
+内容文本 Tc + 情感特征 Pe
+    ↓
+阶段A: 文本 → TTS直接音频输出 → BigVGAN提取标准Mel → M0
+    ↓
+[可选] VQ-VAE量化层: Pe → Pe' (量化后的情感特征)
+    ↓
+阶段B1: (M0, Pe/Pe') → M1 (带情感的Mel频谱)
+    ↓
+[可选] 阶段B2: (M1, Pe/Pe') → M2 (扩散模型细化)
+    ↓
+BigVGAN声码器: Mel频谱 → 重建音频 (参数一致性保证)
+```
+
+**两种架构的本质等价性**：
+- **理念架构**：强调音素到Mel的直接映射，符合传统TTS设计思路
+- **实现架构**：通过TTS→音频→Mel的路径，解决了不同TTS模型参数不匹配的实际工程问题
+- **核心一致**：都实现了"内容→中性表征→情感化→音频重建"的完整流程
+
 ### 关键设计特点
 
 1. **VQ-VAE量化层位置**: 位于整个B阶段之前，对输入的emotion2vec表征进行量化
@@ -38,6 +65,8 @@
    - **B2**: 扩散模型细化器，对M1进行进一步优化生成M2（可选）
 3. **统一的情感输入**: B1和B2都使用相同的（量化或原始）情感表征
 4. **可选开关**: VQ-VAE量化和B2阶段都可以通过配置开关控制
+5. **参数一致性保证**: 实现架构中BigVGAN同时负责Mel提取和音频合成，确保参数匹配
+6. **模块解耦设计**: 阶段A支持任意TTS模型，不受Mel频谱参数限制
 
 ## 模块化设计
 
@@ -85,16 +114,24 @@ stage_b:
 
 ### 运行训练
 ```python
-from src.pipeline.training_pipeline import EmotionAudioPipeline
+from src.pipeline.audio_pipeline import AudioEmotionPipeline
 
 # 创建流水线
-pipeline = EmotionAudioPipeline('config/base_config.yaml')
+pipeline = AudioEmotionPipeline('config/audio_pipeline_config.yaml')
 
 # 训练模型
 pipeline.train(pipeline.config)
 ```
 
-### 运行推理
+### 运行推理和测试
+```bash
+# 测试跳过B阶段的基础功能（验证TTS+BigVGAN集成）
+python bypass_stage_b.py
+
+# 测试完整音频处理流水线
+python examples/audio_pipeline_test.py
+```
+
 ```python
 from src.data_processing.audio_processor import AudioLoader
 
@@ -215,7 +252,9 @@ class NewQuantizer(EmotionQuantizer):
 ```
 MyAudioResearchModel/
 ├── config/
-│   └── base_config.yaml          # 配置文件
+│   ├── base_config.yaml         # 基础配置文件
+│   ├── audio_pipeline_config.yaml # 音频流水线配置
+│   └── test_pipeline_config.yaml  # 测试流水线配置
 ├── src/
 │   ├── core/
 │   │   └── interfaces.py         # 核心接口定义
@@ -227,11 +266,12 @@ MyAudioResearchModel/
 │   │   ├── emotion_quantizer.py # VQ-VAE情感量化器
 │   │   └── vocoder.py           # 声码器实现
 │   ├── pipeline/
-│   │   └── training_pipeline.py # 训练和推理流水线
+│   │   └── audio_pipeline.py    # 音频处理流水线
 │   └── utils/
-│       └── model_factory.py     # 模型工厂
+│       └── paddlespeech_utils.py # PaddleSpeech工具
 ├── examples/
-│   └── basic_usage.py           # 使用示例
+│   └── audio_pipeline_test.py   # 音频流水线测试示例
+├── bypass_stage_b.py            # 跳过B阶段测试脚本
 ├── requirements.txt              # 依赖包列表
 └── README.md                    # 项目说明
 ```
@@ -241,15 +281,15 @@ MyAudioResearchModel/
 ### 基础推理示例
 ```python
 # 运行基础示例
-python examples/basic_usage.py
+python examples/audio_pipeline_test.py
 ```
 
 ### 自定义实验
 ```python
-from src.pipeline.training_pipeline import EmotionAudioPipeline
+from src.pipeline.audio_pipeline import AudioEmotionPipeline
 
 # 创建流水线
-pipeline = EmotionAudioPipeline('config/base_config.yaml')
+pipeline = AudioEmotionPipeline('config/audio_pipeline_config.yaml')
 
 # 加载测试音频
 test_audio = pipeline.dataset_loader.load_test_data()[0]
@@ -280,6 +320,7 @@ for name, audio in results.items():
 3. **统一情感输入**: 确保B1和B2使用一致的情感表征
 4. **可控实验设计**: 通过开关控制不同组件的启用，便于对比实验
 5. **模块化架构**: 支持灵活替换各个组件，便于模型迭代
+6. **工程实现优化**: 解决TTS模型与声码器参数不匹配的实际问题，保持理念完整性
 
 ## 开发计划
 

@@ -1,0 +1,146 @@
+# 音频处理流水线配置文件
+# 架构：TTS→音频→BigVGAN提取Mel→阶段B→BigVGAN合成
+
+# 实验配置
+experiment:
+  name: "audio_emotion_pipeline"
+  output_dir: "outputs/audio_pipeline"
+  description: "TTS直接音频输出，BigVGAN统一处理，确保参数一致性"
+
+# 数据处理配置
+data_processing:
+  processor_type: "whisper_emotion"
+  whisper_config:
+    model_size: "base"
+    language: "zh"
+    device: "auto"
+  emotion_config:
+    model_name: "emotion2vec_base"
+    feature_dim: 768
+    device: "auto"
+
+# 阶段A配置: 文本 -> 音频输出
+stage_a:
+  model_type: "audio_output"
+  architecture: "tts_to_audio"
+  model_config:
+    target_sampling_rate: 22050
+    tts_engine_priority:
+      - "paddlespeech"
+      - "simple_synthesis"
+    
+    # BigVGAN Mel提取器配置
+    mel_extractor:
+      type: "bigvgan"
+      version: "22khz"
+      model_name: "nvidia/bigvgan_v2_22khz_80band_fmax8k_256x"
+      
+    # Mel参数（由BigVGAN决定）
+    mel_config:
+      sampling_rate: 22050
+      hop_length: 256
+      n_mel_channels: 80
+      n_fft: 1024
+      win_length: 1024
+      fmin: 0
+      fmax: 8000
+
+# 阶段B配置: M0 -> 情感化Mel
+stage_b:
+  model_type: "emotion_adapter"
+  model_config:
+    emotion_dim: 768
+    mel_dim: 80
+    hidden_dim: 256
+    n_layers: 4
+    enable_b2: false
+  training:
+    batch_size: 16
+    learning_rate: 1e-4
+    epochs: 100
+
+# VQ-VAE情感量化器配置
+emotion_quantizer:
+  enabled: true
+  type: "vqvae"
+  input_dim: 768
+  embedding_dim: 64
+  codebook_sizes: [64, 128, 256, 512, 1024]
+  commitment_loss_weight: 0.25
+
+# 声码器配置: BigVGAN确保参数一致性
+vocoder:
+  model_type: "bigvgan_22khz"
+  model_config:
+    version: "22khz"
+    model_name: "nvidia/bigvgan_v2_22khz_80band_fmax8k_256x"
+    sampling_rate: 22050
+    hop_length: 256
+    n_mel_channels: 80
+
+# 架构原则
+architecture_principles:
+  parameter_consistency: true
+  module_decoupling: true
+  quality_assurance: true
+  debugging_simplified: true
+
+# 数据集配置
+dataset:
+  train_data:
+    audio_dir: "data/train/audio/"
+    text_dir: "data/train/text/"
+  test_data:
+    audio_dir: "data/test/audio/"
+    text_dir: "data/test/text/"
+  preprocessing:
+    target_sr: 22050
+    max_audio_length: 10.0
+    min_audio_length: 1.0
+
+# 训练配置
+training:
+  stage_a:
+    enabled: false
+    epochs: 0
+  stage_b:
+    enabled: true
+    epochs: 100
+    batch_size: 16
+    learning_rate: 1e-4
+  vqvae:
+    enabled: true
+    epochs: 50
+    batch_size: 32
+    learning_rate: 1e-3
+
+# 评估配置
+evaluation:
+  metrics:
+    - "mel_reconstruction_loss"
+    - "audio_quality_score"
+    - "emotion_similarity"
+    - "content_preservation"
+  test_cases:
+    - "neutral_to_happy"
+    - "neutral_to_sad"
+    - "emotion_preservation"
+    - "cross_speaker"
+
+# 输出配置
+output:
+  save_intermediate: true
+  save_audio: true
+  save_mel: true
+  audio_format: "wav"
+
+# 日志配置
+logging:
+  level: "INFO"
+  save_to_file: true
+  log_file: "outputs/audio_pipeline/training.log"
+
+# 设备配置
+device:
+  cuda_if_available: true
+  fallback_to_cpu: true

@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-修复的PaddleSpeech包装器
-
-解决PaddleSpeech卡住的问题，使用更稳定的调用方式
+PaddleSpeech工具集
+提供稳定的PaddleSpeech TTS调用接口
 """
 
 import os
@@ -16,15 +15,15 @@ import time
 import threading
 import queue
 
-class FixedPaddleSpeechWrapper:
+class PaddleSpeechTTS:
     """
-    修复的PaddleSpeech包装器
+    PaddleSpeech TTS工具类
     
-    解决方案：
-    1. 使用超时机制
-    2. 使用独立进程
-    3. 添加重试逻辑
-    4. 简化调用方式
+    特点：
+    1. 使用超时机制防止卡死
+    2. 使用独立进程确保稳定性
+    3. 添加重试逻辑提高成功率
+    4. 简化调用接口
     """
     
     def __init__(self, timeout: int = 30):
@@ -32,10 +31,8 @@ class FixedPaddleSpeechWrapper:
         self.target_sr = 22050
     
     def _create_tts_script(self, text: str, output_file: str) -> str:
-        """
-        创建TTS脚本
-        """
-        # 正确处理Windows路径，避免转义问题
+        """创建TTS脚本"""
+        # 处理Windows路径转义
         escaped_output_file = output_file.replace('\\', '\\\\')
         
         script_content = f'''#!/usr/bin/env python3
@@ -57,7 +54,7 @@ def main():
         wav = tts(text=text)
         
         if isinstance(wav, np.ndarray) and len(wav) > 0:
-            # 保存音频 (使用正确转义的路径)
+            # 保存音频
             output_file = "{escaped_output_file}"
             sf.write(output_file, wav, 22050)
             print("SUCCESS")
@@ -78,9 +75,7 @@ if __name__ == "__main__":
         return script_content
     
     def _run_with_timeout(self, script_path: str) -> tuple[bool, str, str]:
-        """
-        带超时的脚本执行
-        """
+        """带超时的脚本执行"""
         try:
             process = subprocess.Popen(
                 [sys.executable, script_path],
@@ -100,9 +95,7 @@ if __name__ == "__main__":
             return False, "", str(e)
     
     def synthesize(self, text: str, max_retries: int = 2) -> Optional[np.ndarray]:
-        """
-        合成语音
-        """
+        """合成语音"""
         print(f"🎤 PaddleSpeech合成: '{text}'")
         
         for attempt in range(max_retries + 1):
@@ -154,18 +147,55 @@ if __name__ == "__main__":
         return None
 
 # 全局实例
-_paddlespeech_wrapper = None
+_paddlespeech_tts = None
 
-def get_paddlespeech_wrapper() -> FixedPaddleSpeechWrapper:
-    """获取PaddleSpeech包装器实例"""
-    global _paddlespeech_wrapper
-    if _paddlespeech_wrapper is None:
-        _paddlespeech_wrapper = FixedPaddleSpeechWrapper()
-    return _paddlespeech_wrapper
+def get_paddlespeech_tts() -> PaddleSpeechTTS:
+    """获取PaddleSpeech TTS实例"""
+    global _paddlespeech_tts
+    if _paddlespeech_tts is None:
+        _paddlespeech_tts = PaddleSpeechTTS()
+    return _paddlespeech_tts
 
-def synthesize_text(text: str) -> Optional[np.ndarray]:
+def text_to_speech(text: str) -> Optional[np.ndarray]:
     """
-    简单的文本合成接口
+    简单的文本转语音接口
+    
+    Args:
+        text: 输入文本
+    
+    Returns:
+        音频数组或None（如果失败）
     """
-    wrapper = get_paddlespeech_wrapper()
-    return wrapper.synthesize(text)
+    tts = get_paddlespeech_tts()
+    return tts.synthesize(text)
+
+def create_paddlespeech_executor():
+    """
+    创建PaddleSpeech执行器（兼容性接口）
+    
+    Returns:
+        (executor, success)
+    """
+    try:
+        tts = get_paddlespeech_tts()
+        
+        # 创建一个兼容的执行器包装
+        class ExecutorWrapper:
+            def __init__(self, tts_instance):
+                self.tts = tts_instance
+            
+            def __call__(self, text: str, output: str = None):
+                """执行TTS"""
+                audio = self.tts.synthesize(text)
+                if audio is not None and output is not None:
+                    # 保存到指定路径
+                    sf.write(output, audio, 22050)
+                    return output
+                return audio
+        
+        executor = ExecutorWrapper(tts)
+        return executor, True
+        
+    except Exception as e:
+        print(f"创建PaddleSpeech执行器失败: {e}")
+        return None, False
