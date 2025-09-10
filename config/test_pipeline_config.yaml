@@ -4,7 +4,7 @@
 # 数据处理配置
 data_processing:
   whisper_config:
-    model_size: "base"
+    model_size: "medium"
     language: "zh"
     device: "auto"
   emotion_config:
@@ -33,4 +33,4 @@ test:
   output_dir: "outputs/complete_pipeline_test"
   save_intermediate_results: true
   audio_formats: [".wav", ".mp3", ".flac", ".ogg"]
-  test_audio_files: ["test_audio.wav", "test.wav", "sample.wav", "demo.wav"]
+  test_audio_files: ["test_audio2.ogg", "test_audio.wav", "test_audio3.ogg", "test.wav", "sample.wav", "demo.wav"]

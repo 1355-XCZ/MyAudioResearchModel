@@ -1,0 +1,6 @@
+{
+  "audio_file": "test_audio2.ogg",
+  "extracted_text": "已確認敵人位置 即近距離 戰鬥力計算完畢",
+  "emotion_features_shape": "(768,)",
+  "mel_passthrough": true
+}

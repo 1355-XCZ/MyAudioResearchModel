@@ -105,8 +105,19 @@ class WhisperEmotionProcessor(DataProcessor):
             print(f"✅ 使用配套文本: {final_text[:50]}...")
         else:
             # 使用Whisper进行语音识别
+            # Whisper需要16kHz采样率，需要重采样
+            if audio_data.sample_rate != 16000:
+                import librosa
+                whisper_audio = librosa.resample(
+                    audio_data.waveform, 
+                    orig_sr=audio_data.sample_rate, 
+                    target_sr=16000
+                )
+            else:
+                whisper_audio = audio_data.waveform
+            
             result = self.whisper_model.transcribe(
-                audio_data.waveform,
+                whisper_audio,
                 language=self.config.get('whisper', {}).get('language', 'zh')
             )
             final_text = result["text"]

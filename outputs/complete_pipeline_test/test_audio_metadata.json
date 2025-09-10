@@ -1,0 +1,6 @@
+{
+  "audio_file": "test_audio.wav",
+  "extracted_text": "現在的狀況和條件好,肯定能贏!",
+  "emotion_features_shape": "(768,)",
+  "mel_passthrough": true
+}

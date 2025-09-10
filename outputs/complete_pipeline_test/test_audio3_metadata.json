@@ -1,0 +1,6 @@
+{
+  "audio_file": "test_audio3.ogg",
+  "extracted_text": "悲傷也好 憤怒也罷我都會把他們因素分解掉",
+  "emotion_features_shape": "(768,)",
+  "mel_passthrough": true
+}

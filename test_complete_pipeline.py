@@ -76,7 +76,7 @@ class CompletePipelineTest:
             
             # 1. 初始化数据处理器（预处理）
             print("\n🔧 初始化数据处理器...")
-            from data_processing.audio_processor import WhisperEmotionProcessor
+            from src.data_processing.audio_processor import WhisperEmotionProcessor
             
             processor_config = {
                 'whisper': config['data_processing']['whisper_config'],
@@ -88,14 +88,14 @@ class CompletePipelineTest:
             
             # 2. 初始化阶段A
             print("\n🎤 初始化阶段A...")
-            from models.stage_a import AudioStageAModel
+            from src.models.stage_a import AudioStageAModel
             
             self.stage_a = AudioStageAModel(config['stage_a'])
             print("   ✅ 阶段A初始化成功")
             
             # 3. 初始化BigVGAN
             print("\n🎼 初始化BigVGAN...")
-            from models.vocoder import BigVGANVocoder
+            from src.models.vocoder import BigVGANVocoder
             
             self.bigvgan = BigVGANVocoder(config['vocoder']['bigvgan'])
             print("   ✅ BigVGAN初始化成功")
@@ -133,7 +133,7 @@ class CompletePipelineTest:
             print(f"   📁 加载音频: {len(audio_data)/sample_rate:.2f}秒, 采样率: {sample_rate}Hz")
             
             # 创建AudioData对象
-            from core.interfaces import AudioData
+            from src.core.interfaces import AudioData
             audio_obj = AudioData(
                 waveform=audio_data,
                 sample_rate=sample_rate,

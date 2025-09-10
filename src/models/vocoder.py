@@ -320,6 +320,7 @@ class BigVGANVocoder(Vocoder):
         
         # 初始化模型
         self.model = None
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self._load_bigvgan_model()
         
     def _load_bigvgan_model(self):
@@ -361,9 +362,18 @@ class BigVGANVocoder(Vocoder):
                         print(f"  - torch.hub: {e3}")
                         raise RuntimeError("无法加载BigVGAN模型，请检查网络连接和依赖安装")
             
-            # 设置为评估模式
+            # 设置为评估模式并移动到GPU
             if self.model is not None:
                 self.model.eval()
+                
+                # 将模型移动到指定设备
+                self.model = self.model.to(self.device)
+                print(f"✅ BigVGAN模型已设置为评估模式")
+                print(f"✅ BigVGAN模型已移动到设备: {self.device}")
+                
+                # 验证模型设备
+                actual_device = next(self.model.parameters()).device
+                print(f"✅ BigVGAN模型实际设备: {actual_device}")
                 
         except Exception as e:
             print(f"❌ BigVGAN模型加载失败: {e}")
@@ -402,6 +412,17 @@ class BigVGANVocoder(Vocoder):
         
         # 生成音频
         try:
+            # 确保设备一致性
+            if hasattr(self.model, 'device'):
+                model_device = self.model.device
+            else:
+                # 检查模型参数的设备
+                model_device = next(self.model.parameters()).device
+            
+            # 将Mel频谱移动到模型所在的设备
+            mel_spectrogram = mel_spectrogram.to(model_device)
+            print(f"   🔧 设备同步: Mel={mel_spectrogram.device}, Model={model_device}")
+            
             with torch.no_grad():
                 # 不同的BigVGAN实现可能有不同的接口
                 if hasattr(self.model, 'forward'):
@@ -426,8 +447,25 @@ class BigVGANVocoder(Vocoder):
             return audio.cpu().numpy()
             
         except Exception as e:
-            print(f"BigVGAN音频生成失败: {e}")
+            print(f"❌ BigVGAN音频生成失败: {e}")
+            print(f"   🔍 调试信息:")
+            print(f"   - Mel频谱形状: {mel_spectrogram.shape}")
+            print(f"   - Mel频谱设备: {mel_spectrogram.device}")
+            print(f"   - 模型类型: {type(self.model)}")
+            if hasattr(self.model, 'device'):
+                print(f"   - 模型设备: {self.model.device}")
+            else:
+                try:
+                    model_device = next(self.model.parameters()).device
+                    print(f"   - 模型参数设备: {model_device}")
+                except:
+                    print(f"   - 无法获取模型设备信息")
+            
+            import traceback
+            traceback.print_exc()
+            
             # 返回静音作为备选
+            print(f"   ⚠️ 返回静音音频作为备选方案")
             return np.zeros(mel_spectrogram.shape[2] * self.hop_length, dtype=np.float32)
     
     def load_pretrained(self, model_path: str) -> None:
@@ -455,7 +493,7 @@ class BigVGANVocoder(Vocoder):
                 audio = audio[np.newaxis, :]  # (1, samples)
             
             # 转换为tensor
-            wav_tensor = torch.FloatTensor(audio).to(self.model.device)
+            wav_tensor = torch.FloatTensor(audio).to(self.device)
             
             # 使用BigVGAN的Mel提取函数
             from bigvgan import get_mel_spectrogram

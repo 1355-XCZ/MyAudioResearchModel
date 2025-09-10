@@ -29,14 +29,29 @@ class AudioStageAModel(StageAModel):
         self.tts_available = False
         self.bigvgan_available = False
         
+        # 初始化PaddleSpeech TTS
+        try:
+            from ..utils.paddlespeech_utils import get_paddlespeech_tts
+            self.tts = get_paddlespeech_tts()
+            self.tts_available = True
+            print("   ✅ PaddleSpeech TTS初始化成功")
+        except Exception as e:
+            print(f"   ⚠️ PaddleSpeech TTS不可用: {e}")
+            self.tts = None
+        
+        # 初始化BigVGAN
         try:
             import bigvgan
             self.bigvgan_model = bigvgan.BigVGAN.from_pretrained(
                 "nvidia/bigvgan_v2_22khz_80band_fmax8k_256x"
             )
             self.bigvgan_model.eval()
+            
+            # 将模型移动到指定设备
+            self.bigvgan_model = self.bigvgan_model.to(self.device)
             self.bigvgan_available = True
             print("   ✅ BigVGAN初始化成功")
+            print(f"   ✅ BigVGAN已移动到设备: {self.device}")
         except:
             print("   ⚠️ BigVGAN不可用，使用简化模式")
     
@@ -74,6 +89,26 @@ class AudioStageAModel(StageAModel):
     
     def _generate_audio(self, text: str) -> np.ndarray:
         """生成音频"""
+        if self.tts_available and self.tts is not None:
+            try:
+                # 使用PaddleSpeech TTS生成真实语音
+                print(f"   🎤 使用PaddleSpeech TTS合成: '{text}'")
+                audio = self.tts.synthesize(text)
+                
+                # 确保采样率正确
+                if hasattr(audio, 'sample_rate') and audio.sample_rate != self.target_sr:
+                    import librosa
+                    audio_data = librosa.resample(audio.data, orig_sr=audio.sample_rate, target_sr=self.target_sr)
+                else:
+                    audio_data = audio if isinstance(audio, np.ndarray) else audio.data
+                
+                return audio_data.astype(np.float32)
+                
+            except Exception as e:
+                print(f"   ⚠️ PaddleSpeech TTS失败，使用简单合成: {e}")
+        
+        # 备选方案：简单合成（用于测试或TTS不可用时）
+        print(f"   🔧 使用简单合成音频: '{text}'")
         duration = max(1.0, len(text) * 0.1)
         t = np.linspace(0, duration, int(self.target_sr * duration))
         
