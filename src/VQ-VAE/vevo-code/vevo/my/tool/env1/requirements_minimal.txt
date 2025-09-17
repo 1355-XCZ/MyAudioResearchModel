@@ -1,0 +1,49 @@
+# VEVO项目最小依赖配置
+# 仅包含核心必需的库，适合快速安装和测试
+
+# 深度学习框架
+torch==2.0.1
+torchaudio==2.0.2
+torchvision==0.15.2
+transformers==4.41.2
+accelerate==0.24.1
+
+# 数值计算
+numpy==1.26.0
+scipy==1.12.0
+
+# 音频处理
+librosa
+soundfile
+encodec
+
+# 文本处理
+phonemizer==3.2.1
+g2p_en
+pypinyin==0.48.0
+jieba
+cn2an
+unidecode
+
+# 配置文件
+omegaconf
+ruamel.yaml
+json5
+
+# 工具
+tqdm
+huggingface_hub
+datasets
+
+# Web界面
+gradio
+
+# 语音识别
+openai-whisper
+
+# 代码格式化
+black==24.1.1
+
+# 构建工具
+setuptools
+Cython

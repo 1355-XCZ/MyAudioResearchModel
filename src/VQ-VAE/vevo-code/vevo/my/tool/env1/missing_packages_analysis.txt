@@ -1,0 +1,29 @@
+# 依赖对比分析
+
+## 您的 vevo-full.txt 中有但我的脚本中缺失的包：
+
+### 缺失的包：
+1. argparse - Python内置模块，通常不需要单独安装
+2. tgt - 文本处理工具
+3. typeguard - 类型检查工具
+4. humanfriendly - 用户友好的输出格式化
+5. munch - 字典对象包装器
+6. ffmpeg-python==0.2.0 - FFmpeg Python绑定 (我用了其他版本)
+7. diffsptk==1.0.1 - 我用了2.1.0版本
+8. nnAudio - 神经网络音频处理
+9. ptwt - PyTorch小波变换
+10. PyYAML - YAML解析器 (我用了ruamel.yaml)
+11. ipython - 交互式Python (我用了IPython)
+
+## 版本差异：
+- diffsptk: 您用1.0.1，我用2.1.0
+- ffmpeg-python: 您指定0.2.0，我没指定版本
+- openai-whisper: 您没指定版本，我用20231117
+- librosa: 您没指定版本，我用0.10.2
+- 其他大部分核心包版本一致
+
+## 我的脚本中有但您列表中没有的包：
+- 更多评估指标库 (pystoi, jiwer等)
+- 更多数据处理库
+- Web界面相关库
+- 更多音频处理库

@@ -1,0 +1,46 @@
+# Emilia 数据集中性频谱图生成配置
+
+# 输出配置
+output:
+  base_dir: "data/emilia_neutral_mels"
+  create_file_lists: true
+  
+# 数据集配置
+dataset:
+  name: "amphion/Emilia-Dataset"
+  languages: ["EN", "ZH"]  # 只使用中英文
+  streaming: true
+  balance_languages: true
+  max_samples_per_lang: 10000  # 每种语言的最大样本数
+  
+# Vevo TTS 模式配置 (与 Vevo 的 Vocoder.json 保持一致)
+vevo_config:
+  # 音频参数
+  sample_rate: 24000      # Vevo 使用 24kHz
+  max_length: 36000       # 最大音频长度 (1.5s at 24kHz)
+  min_length: 2400        # 最小音频长度 (0.1s at 24kHz)
+  
+  # Mel 频谱图参数 - 与 Vevo 完全一致
+  hop_size: 480           # Vevo 的 hop_size
+  n_fft: 1920            # Vevo 的 n_fft  
+  win_size: 1920         # Vevo 的 win_size
+  num_mels: 128          # Vevo 使用 128 mel channels
+  fmin: 0                # 最小频率
+  fmax: 12000            # 最大频率 (24000/2)
+  
+  # 标准化参数 - Vevo 的统计值
+  mel_mean: -4.92        # Vevo 的 mel 均值
+  mel_var: 8.14          # Vevo 的 mel 方差
+
+# 数据划分
+split:
+  train_ratio: 0.9
+  val_ratio: 0.1
+  shuffle: true
+  
+# 处理配置
+processing:
+  batch_size: 1
+  num_workers: 4
+  save_metadata: true
+  log_interval: 100

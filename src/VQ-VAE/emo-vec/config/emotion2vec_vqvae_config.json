@@ -1,0 +1,86 @@
+{
+    "model_type": "Emotion2VecVQVAE",
+    "dataset": {
+        "data_root": "./data",
+        "train_ratio": 0.9,
+        "valid_ratio": 0.1
+    },
+    "preprocess": {
+        "hop_size": 320,
+        "sample_rate": 16000,
+        "max_length": 128000,
+        "random_crop": true,
+        "processed_dir": "",
+        "valid_file": "valid.json",
+        "train_file": "train.json"
+    },
+    "model": {
+        "emotion2vec": {
+            "model_name": "emotion2vec_base",
+            "use_dummy": true,
+            "feature_dim": 1024,
+            "sample_rate": 16000,
+            "normalize": true,
+            "layer": -1,
+            "use_weighted_layer_sum": false
+        },
+        "repcodec": {
+            "codebook_size": 1024,
+            "codebook_num": 1,
+            "input_channels": 1024,
+            "output_channels": 1024,
+            "encode_channels": 512,
+            "decode_channels": 512,
+            "code_dim": 512,
+            "bias": true,
+            "enc_ratios": [1, 1],
+            "dec_ratios": [1, 1],
+            "enc_strides": [1, 1],
+            "dec_strides": [1, 1],
+            "enc_kernel_size": 3,
+            "dec_kernel_size": 3,
+            "enc_block_dilations": [1, 1],
+            "enc_block_kernel_size": 3,
+            "dec_block_dilations": [1, 1],
+            "dec_block_kernel_size": 3
+        },
+        "representation_type": "emotion2vec",
+        "representation_sample_rate": 16000,
+        "use_norm_feat": false,
+        "emotion2vec_stat_mean_var_path": ""
+    },
+    "log_dir": "ckpts/emotion2vec_vqvae",
+    "train": {
+        "max_epoch": 0,
+        "use_dynamic_batchsize": false,
+        "max_tokens": 8000000,
+        "max_sentences": 100,
+        "lr_warmup_steps": 5000,
+        "lr_scheduler": "constant",
+        "num_train_steps": 50000,
+        "adam": {
+            "lr": 1e-4,
+            "betas": [0.5, 0.9]
+        },
+        "ddp": false,
+        "random_seed": 42,
+        "batch_size": 8,
+        "epochs": 1000,
+        "max_steps": 50000,
+        "total_training_steps": 50000,
+        "save_summary_steps": 500,
+        "save_checkpoints_steps": 2000,
+        "valid_interval": 2000,
+        "keep_checkpoint_max": 10,
+        "gradient_accumulation_step": 1,
+        "tracker": ["tensorboard"],
+        "save_checkpoint_stride": [1],
+        "keep_last": [5],
+        "run_eval": [true],
+        "dataloader": {
+            "num_worker": 4,
+            "pin_memory": true
+        },
+        "use_emotion2vec_dataset": true
+    }
+}

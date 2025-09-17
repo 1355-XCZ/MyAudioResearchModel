@@ -1,0 +1,115 @@
+
+train:
+  epoch: 2000
+  early_stop: 5
+  checkpoint: &checkpoint exp/test
+  resume: null
+  reload_best_loss: True
+  reset_lr: True
+  strict: True
+  rm_stft: False
+  save_period: 1
+  seed: 1234
+
+
+#
+model: &model_conf
+  emotion_processor: emotion2vec  # emotion2vec processor type
+  audio_drop_prob: 0
+  cond_drop_prob: 0
+
+  arch:
+    dim: 1024
+    depth: 22
+    heads: 16
+    ff_mult: 2
+    e2v_utterance_dim: 768  # emotion2vec utterance feature dimension
+    e2v_frame_dim: 768      # emotion2vec frame feature dimension  
+    emotion_dim: 512        # output emotion conditioning dimension
+    conv_layers: 4
+    checkpoint_activations: False  # recompute activations and save memory for extra compute
+  mel_spec:
+    target_sample_rate: 24000
+    n_mel_channels: 128      # 与 Vevo 一致 (从 100 改为 128)
+    hop_length: 480          # 与 Vevo 一致 (从 256 改为 480) 
+    win_length: 1920         # 与 Vevo 一致 (从 1024 改为 1920)
+    n_fft: 1920             # 与 Vevo 一致 (从 1024 改为 1920)
+    f_min: 0                # 与 Vevo 一致
+    f_max: 12000            # 与 Vevo 一致 (24000/2)
+    mel_spec_type: vocos    # 'vocos' or 'bigvgan'
+  vocoder:
+    is_local: True  # use local offline ckpt or not
+    local_path: vocos-mel-24khz  # local vocoder path
+
+optim:
+  lr: 7.5e-6
+  warm_up_step: 2500
+  max_epoch: 10
+  grad_accumulation_steps: 1
+  gradient_clip: 5.0
+
+
+
+logger:
+  path:
+  print_freq: 100
+
+
+datasets:
+
+  train:
+    vevo_mel_scp : datalist/train/vevo_mel.scp    # Vevo generated mel (neutral + timbre)
+    source_mel_scp : datalist/train/source_mel.scp  # Source mel (with emotion)
+    source_audio_scp: datalist/train/source_audio.scp  # Source audio for emotion2vec
+    emotion_features_scp: datalist/train/emotion_features.json  # Pre-extracted emotion2vec features
+
+  val:
+    vevo_mel_scp : datalist/train/vevo_mel.scp
+    source_mel_scp : datalist/train/source_mel.scp
+    source_audio_scp: datalist/train/source_audio.scp
+    emotion_features_scp: datalist/train/emotion_features.json
+
+  dataloader_setting:
+    repeat: 1 
+    batch_size: 6010
+    max_samples: 64
+    num_workers: 16
+    sample_rate: 16000
+    probability:
+      p1: 75
+      p2: 25
+
+    snr_ranges:
+      "-5_to_0": 0.05
+      "0_to_5": 0.3
+      "5_to_10": 0.45
+      "10_to_20": 0.2
+    scale_ranges:
+      "-35_to_-15": 1.0
+    
+
+
+########################################################
+#############       test and eval   ####################
+########################################################
+infer:
+
+  test:
+    checkpoint: ckpts
+    cond_type: emotion  # 'emotion' or 'no_emotion'
+    pt_name: best.pt.tar
+    use_cuda: True
+
+  save:
+    dir: test_out
+    fs: 16000
+
+  datareader:
+    vevo_mel_json: datalist/test/vevo_mel.json
+    vevo_mel_dir: datalist/test/vevo_mel
+    emotion_features_json: datalist/test/emotion_features.json
+    sample_rate: 16000
+
+  nnet_conf:
+    *model_conf
+

@@ -1,0 +1,169 @@
+#!/bin/bash
+###############################################################################
+#  文件名: vevo_run.slurm
+#  用途  : 在 Spartan 上运行 Amphion/VEVO 的推理或训练作业
+#  说明  : 该脚本包含最常见的 Slurm 参数、Conda 环境激活、日志与资源统计整合
+#           - 支持四种 VEVO 推理入口（timbre/style/voice/tts）
+#           - 输出使用时间戳目录，便于归档与复现
+###############################################################################
+
+#############################
+# ===== Slurm 资源申请 =====
+#############################
+#SBATCH --partition=gpu-a100-short       # 分区：调试/短作业用 'gpu-a100-short'（≤4h）；长作业用 'gpu-a100'/'gpu-h100'
+#SBATCH --gres=gpu:1                     # 申请 1 块 GPU（GPU 不能拆分，只能整块申请；视需要调大，如 2）
+#SBATCH -c 4                             # 申请 4 个 CPU 核（推理通常 4~8；训练常见 8~16）
+#SBATCH --mem=16G                        # 申请 16 GB 内存（推理 16~32G；训练 32~64G 起）
+#SBATCH -t 01:00:00                      # Walltime：最大运行时长；短作业先给 1 小时
+#SBATCH -J vevo-infer                    # 作业名（可自定义）
+#SBATCH -o logs/%x-%j.out                # 标准输出日志（%x=作业名；%j=作业ID）
+#SBATCH -e logs/%x-%j.err                # 错误输出日志
+#SBATCH --signal=TERM@60                 # 到时限前 60 秒发送 SIGTERM，便于优雅退出与收尾
+
+# 可选：邮件通知（需要时取消注释并填邮箱）
+#SBATCH --mail-user=haoguangz@student.unimelb.edu.au
+#SBATCH --mail-type=BEGIN,END,FAIL
+
+# 可选：项目账号（若需要明确指定）
+#SBATCH -A punim2341
+
+# 可选：Job Array（批量任务）
+# #SBATCH --array=1-10
+
+# 可选：作业依赖（在某作业成功后再运行本作业）
+# #SBATCH --dependency=afterok:<JOBID>
+
+#############################
+# ===== 安全/健壮设置  =====
+#############################
+set -euo pipefail   # -e: 任一命令失败即退出；-u: 未定义变量即报错；-o pipefail: 管道中任一失败即失败
+
+#############################
+# ===== 路径与环境变量  =====
+#############################
+
+# 你的项目根目录（请改成你的实际项目号与用户名目录）
+PROJECT_ROOT=/data/gpfs/projects/punim2341/haoguangzhou
+
+# 代码目录（Amphion 仓库根）
+CODE_DIR="${PROJECT_ROOT}/voice/Amphion-VevoDev"
+
+# 运行输出根目录（每次作业会新建时间戳子目录保存日志/输出/统计）
+RUNS_ROOT="${PROJECT_ROOT}/runs"
+
+# Conda 环境名（或绝对路径激活），你之前创建的环境
+CONDA_ENV=vevo
+
+# （可选但推荐）将 Hugging Face 缓存放到项目目录，避免挤占 $HOME
+export HF_HOME="${PROJECT_ROOT}/.cache/huggingface"
+export TRANSFORMERS_CACHE="${HF_HOME}"
+export TORCH_HOME="${PROJECT_ROOT}/.cache/torch"
+mkdir -p "${HF_HOME}" "${TORCH_HOME}"
+
+# （可选）将临时文件放到节点本地更快（仅在作业内使用，作业结束会回收）
+export TMPDIR=${TMPDIR:-/tmp}
+
+#############################
+# ===== 生成本次运行目录 =====
+#############################
+timestamp=$(date +%Y%m%d_%H%M%S)
+RUN_DIR="${RUNS_ROOT}/${timestamp}_vevo_infer"
+LOG_DIR="${RUN_DIR}/logs"
+OUT_DIR="${RUN_DIR}/outputs"
+STAT_DIR="${RUN_DIR}/stats"
+mkdir -p "${LOG_DIR}" "${OUT_DIR}" "${STAT_DIR}"
+
+#############################
+# ===== 加载与激活环境  =====
+#############################
+
+# 不要混用 module 的深度学习栈与 conda（保持干净）
+module purge
+module load Anaconda3/2024.02-1           # 仅加载 Anaconda 模块
+
+# 让 conda 命令在当前 shell 生效（HPC 上不要用 conda init）
+eval "$(conda shell.bash hook)"
+conda activate "${CONDA_ENV}"
+
+# 推荐：把 conda 环境与 pkgs 缓存放在项目目录（你已在 ~/.bash_profile 配置过）
+# export CONDA_ENVS_PATH=${PROJECT_ROOT}/envs
+# export CONDA_PKGS_DIR=${PROJECT_ROOT}/pkgs
+
+#############################
+# ===== 选择 VEVO 模式   =====
+#############################
+# VEVO 四个入口（任选其一）。默认跑 timbre demo。
+# 如需自定义输入，请修改 infer_vevo*.py 里的路径，或写 wrapper 支持命令行参数。
+
+VEVO_MODE=${VEVO_MODE:-timbre}  # 支持 timbre / style / voice / tts
+
+# 若你已经写了支持 --src/--ref/--text/--outdir 的自定义封装脚本，可在这里传参：
+SRC_WAV=${SRC_WAV:-""}          # 源语音（timbre/style/voice 用）
+REF_WAV=${REF_WAV:-""}          # 参考音色/风格（timbre/style/voice 用）
+TTS_TEXT=${TTS_TEXT:-""}        # TTS 文本（tts 用）
+
+#############################
+# ===== 运行前信息快照  =====
+#############################
+echo "==== RUN INFO ====" | tee -a "${LOG_DIR}/${SLURM_JOB_ID}.out"
+echo "JOB_ID        : ${SLURM_JOB_ID}"        | tee -a "${LOG_DIR}/${SLURM_JOB_ID}.out"
+echo "PARTITION     : ${SLURM_JOB_PARTITION}" | tee -a "${LOG_DIR}/${SLURM_JOB_ID}.out"
+echo "RUN_DIR       : ${RUN_DIR}"             | tee -a "${LOG_DIR}/${SLURM_JOB_ID}.out"
+echo "CODE_DIR      : ${CODE_DIR}"            | tee -a "${LOG_DIR}/${SLURM_JOB_ID}.out"
+echo "VEVO_MODE     : ${VEVO_MODE}"           | tee -a "${LOG_DIR}/${SLURM_JOB_ID}.out"
+command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi | tee -a "${LOG_DIR}/${SLURM_JOB_ID}.out"
+
+#############################
+# ===== 优雅退出与统计  =====
+#############################
+record_stats() {
+  echo "==== my-job-stats @ $(date) ====" | tee -a "${LOG_DIR}/${SLURM_JOB_ID}.out"
+  my-job-stats -a -n -s -j "${SLURM_JOB_ID}" > "${STAT_DIR}/${SLURM_JOB_ID}.stats" 2>&1 || true
+  tail -n +1 "${STAT_DIR}/${SLURM_JOB_ID}.stats" | tee -a "${LOG_DIR}/${SLURM_JOB_ID}.out" || true
+}
+trap record_stats EXIT             # 无论正常/失败/取消，结束时记录一次
+trap "echo 'Got SIGTERM, wrapping up...'; record_stats; exit 1" TERM  # 提前 60s 收到信号时的处理（配合 --signal）
+
+#############################
+# ===== 切换到代码目录  =====
+#############################
+cd "${CODE_DIR}"
+
+#############################
+# ======= 执行 VEVO  =======
+#############################
+# 注意：VEVO 官方 demo 的 infer_vevo*.py 默认用仓库自带示例音频/文本。
+# 如果要用你自己的数据，请修改这些脚本中的输入路径，或写一个 run_vevo.py 的封装支持命令行参数。
+case "${VEVO_MODE}" in
+  timbre)
+    # 音色转换：内容不变，换“谁在说话”
+    # （如果你写了自己的封装脚本，可替换为：python run_vevo_timbre.py --src "$SRC_WAV" --ref "$REF_WAV" --outdir "$OUT_DIR"）
+    python -m models.vc.vevo.infer_vevotimbre
+    ;;
+  style)
+    # 风格转换：声音与内容保持/微调，换“怎么说”（情感/说话风格）
+    python -m models.vc.vevo.infer_vevostyle
+    ;;
+  voice)
+    # 综合变声：音色 + 风格一起变
+    python -m models.vc.vevo.infer_vevovoice
+    ;;
+  tts)
+    # 文本转语音（若 TTS 报依赖 espeak-ng/phonemizer 问题，先跑其它三种；或与平台支持沟通系统依赖）
+    python -m models.vc.vevo.infer_vevotts
+    ;;
+  *)
+    echo "Unknown VEVO_MODE='${VEVO_MODE}'. Use one of: timbre | style | voice | tts" >&2
+    exit 2
+    ;;
+esac
+
+#############################
+# ====== 移动输出产物  ======
+#############################
+# VEVO demo 默认把 wav 写在 models/vc/vevo/wav/ 下；为了归档清晰，拷到本次运行目录
+if [ -d "models/vc/vevo/wav" ]; then
+  rsync -ah --ignore-existing "models/vc/vevo/wav/" "${OUT_DIR}/"
+fi
+
+echo "==== DONE. Outputs in: ${OUT_DIR} ====" | tee -a "${LOG_DIR}/${SLURM_JOB_ID}.out"

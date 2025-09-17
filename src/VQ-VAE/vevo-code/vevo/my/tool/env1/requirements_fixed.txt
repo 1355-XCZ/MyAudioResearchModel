@@ -1,0 +1,116 @@
+# VEVO项目修复版依赖列表
+# 解决了版本冲突问题，按正确顺序安装
+
+# ========== 核心深度学习框架 (兼容版本组合) ==========
+torch==2.0.1
+torchvision==0.15.2
+torchaudio==2.0.2
+transformers==4.41.2
+accelerate==0.24.1
+diffusers
+safetensors
+
+# ========== 数值计算库 ==========
+numpy==1.26.0
+scipy==1.12.0
+pandas
+matplotlib
+scikit-learn
+
+# ========== 配置和数据处理 (兼容版本) ==========
+omegaconf==2.3.0
+hydra-core
+ruamel.yaml
+PyYAML
+json5
+easydict
+datasets
+huggingface_hub
+
+# ========== 音频处理核心库 ==========
+librosa
+soundfile
+audiomentations
+pyworld
+praat-parselmouth
+diffsptk==1.0.1
+pysptk
+resampy
+soxr
+nnAudio
+ptwt
+ffmpeg-python==0.2.0
+
+# ========== 音频编解码器 ==========
+encodec
+vocos
+speechtokenizer
+descript-audio-codec
+
+# ========== 文本处理和G2P ==========
+phonemizer==3.2.1
+g2p_en
+pypinyin==0.48.0
+jieba
+cn2an
+unidecode
+pyopenjtalk
+pykakasi
+tgt
+inflect
+
+# ========== 评估指标 ==========
+torchmetrics
+frechet_audio_distance
+# pesq需要特殊安装: pip install https://github.com/vBaiCai/python-pesq/archive/master.zip
+pystoi
+pymcd
+mir_eval
+jiwer
+
+# ========== 训练和优化 ==========
+tensorboard
+tensorboardX
+wandb
+
+# ========== 语音识别和处理 ==========
+openai-whisper
+# fairseq需要特殊安装: pip install git+https://github.com/pytorch/fairseq.git
+# whisperx需要特殊安装: pip install git+https://github.com/m-bain/whisperx.git
+# lhotse需要特殊安装: pip install git+https://github.com/lhotse-speech/lhotse
+
+# ========== 工具库 ==========
+tqdm
+loguru
+colorama
+tabulate
+humanfriendly
+munch
+typeguard
+einops
+vector-quantize-pytorch==1.12.5
+
+# ========== Web界面 ==========
+gradio
+fastapi
+uvicorn
+
+# ========== 编译和构建工具 ==========
+setuptools
+Cython
+wheel
+
+# ========== 代码质量 ==========
+black==24.1.1
+ruff
+
+# ========== 其他工具 ==========
+ipython
+onnxruntime
+
+# ========== 特殊安装说明 ==========
+# 以下包需要特殊安装命令:
+# pip install https://github.com/vBaiCai/python-pesq/archive/master.zip
+# pip install git+https://github.com/pytorch/fairseq.git
+# pip install git+https://github.com/lhotse-speech/lhotse
+# pip install git+https://github.com/m-bain/whisperx.git
