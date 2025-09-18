@@ -46,7 +46,7 @@ ipython_config.py
 *.ckpt
 *.checkpoint
 *.tar
-models/
+# models/  # 注释掉，保留Amphion/models下的代码
 ckpts/
 cache/
 checkpoints/
@@ -196,12 +196,12 @@ torch/
 *.bz2
 *.xz
 
-# 网络文件和静态资源
+# 网络文件和静态资源（但保留Amphion中的文档图片）
 *.html
 *.css
 *.js
-*.png
-*.jpg
+# *.png  # 注释掉，保留Amphion文档图片
+# *.jpg  # 注释掉，保留Amphion文档图片
 *.jpeg
 *.gif
 *.svg
@@ -211,14 +211,23 @@ torch/
 *.ttf
 *.eot
 
-# 文档和媒体文件（除了README）
-*.pdf
+# 但忽略大的图片文件（非文档用途）
+*.png.large
+*.jpg.large
+*.jpeg.large
+
+# 文档和媒体文件（但保留Amphion中的文档）
+# *.pdf  # 注释掉，保留Amphion文档
 *.doc
 *.docx
 *.ppt
 *.pptx
 *.xls
 *.xlsx
+
+# 但忽略大的PDF文件
+*.pdf.large
+Spartan.pdf  # 特定的大文件
 
 # 数据库和大数据文件
 *.db
@@ -227,7 +236,7 @@ torch/
 *.hdf5
 *.parquet
 
-# 机器学习模型格式
+# 机器学习模型格式和大文件
 *.onnx
 *.tflite
 *.pb
@@ -236,6 +245,13 @@ torch/
 *.mlmodel
 *.coreml
 *.engine
+*.t7
+*.h5
+*.hdf5
+
+# 大文件（超过10MB）
+*.safetensors.large
+*.bin.large
 
 # 训练和实验相关
 wandb/
