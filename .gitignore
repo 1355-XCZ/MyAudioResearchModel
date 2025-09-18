@@ -1,0 +1,269 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyTorch
+*.pth
+*.pt
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# 音频文件和模型权重
+*.wav
+*.mp3
+*.flac
+*.ogg
+*.m4a
+*.aac
+
+# 模型权重和缓存
+*.bin
+*.safetensors
+*.ckpt
+*.checkpoint
+*.tar
+models/
+ckpts/
+cache/
+checkpoints/
+
+# 测试输出和临时文件
+test_output_*/
+temp_*/
+output_*/
+*_output/
+*_cache/
+logs/
+*.log
+
+# 数据集和大文件
+dataset/
+data/
+*.npy
+*.npz
+*.json.gz
+*.pkl
+
+# Emilia相关测试输出和缓存
+src/emilia_mel_generator/test_output_*/
+src/emilia_mel_generator/emilia_cache/
+src/emilia_mel_generator/*_output*/
+src/emilia_mel_generator/temp_*/
+src/emilia_mel_generator/final_vevo_test_output/
+src/emilia_mel_generator/vevo_emilia_integration/
+src/emilia_mel_generator/*.wav
+src/emilia_mel_generator/*.npy
+src/emilia_mel_generator/*.npz
+src/emilia_mel_generator/*.tar
+src/emilia_mel_generator/*.pkl
+src/emilia_mel_generator/roundtrip_*.wav
+src/emilia_mel_generator/test_bigvgan_*.wav
+src/emilia_mel_generator/test_mel_*.npy
+src/emilia_mel_generator/Spartan.pdf
+
+# FlowSE相关静态文件和数据
+src/FlowSE-*/static/
+src/FlowSE-*/datalist/*.wav
+src/FlowSE-*/datalist/*.json
+src/FlowSE-*/datalist/*.scp
+
+# 项目根目录的测试文件
+test_audio*.wav
+test_audio*.ogg
+outputs/
+exp/
+test_complete_pipeline.py
+
+# 批处理系统运行时生成的文件
+src/emilia_mel_generator/production_batch/output/
+src/emilia_mel_generator/production_batch/logs/
+src/emilia_mel_generator/production_batch/checkpoints/
+src/emilia_mel_generator/production_batch/temp/
+src/emilia_mel_generator/production_batch/cache/
+src/emilia_mel_generator/production_batch/emilia_dataset/
+src/emilia_mel_generator/production_batch/models/
+src/emilia_mel_generator/production_batch/*.tar.gz
+
+# Amphion模型和缓存
+src/Amphion/ckpts/
+src/Amphion/pretrained/
+src/Amphion/logs/
+src/Amphion/exp_output/
+src/Amphion/temp/
+src/Amphion/egs/*/ckpt/
+src/Amphion/egs/*/exp/
+src/Amphion/egs/*/data/
+src/Amphion/models/*/ckpt/
+src/Amphion/models/*/exp/
+src/Amphion/models/*/data/
+
+# VQ-VAE相关
+src/VQ-VAE/*/ckpt/
+src/VQ-VAE/*/logs/
+src/VQ-VAE/*/output/
+src/VQ-VAE/*/__pycache__/
+src/VQ-VAE/*/wandb/
+src/VQ-VAE/*/runs/
+src/VQ-VAE/*/checkpoints/
+src/VQ-VAE/*/results/
+
+# 生产环境输出（这些在服务器上生成，不需要同步）
+src/emilia_mel_generator/production_batch/output/
+src/emilia_mel_generator/production_batch/logs/
+src/emilia_mel_generator/production_batch/checkpoints/
+src/emilia_mel_generator/production_batch/temp/
+
+# IDE和编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 操作系统
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 环境变量
+.env
+.env.local
+
+# 临时文件
+*.tmp
+*.temp
+temp_vevo_call/
+
+# 服务器上的数据和模型缓存
+# （这些在服务器上重新下载，不需要同步）
+cache/
+models/
+dataset/
+emilia_dataset/
+huggingface/
+transformers/
+torch/
+
+# 大文件和二进制文件
+*.pdf
+*.zip
+*.7z
+*.rar
+*.gz
+*.bz2
+*.xz
+
+# 网络文件和静态资源
+*.html
+*.css
+*.js
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.ico
+*.woff
+*.woff2
+*.ttf
+*.eot
+
+# 文档和媒体文件（除了README）
+*.pdf
+*.doc
+*.docx
+*.ppt
+*.pptx
+*.xls
+*.xlsx
+
+# 数据库和大数据文件
+*.db
+*.sqlite
+*.h5
+*.hdf5
+*.parquet
+
+# 机器学习模型格式
+*.onnx
+*.tflite
+*.pb
+*.model
+*.weights
+*.mlmodel
+*.coreml
+*.engine
+
+# 训练和实验相关
+wandb/
+runs/
+tensorboard/
+mlruns/
+experiments/
+results/
+checkpoint*/
+ckpt*/
+model_*/
+exp_*/
+log*/
+
+# 数据集相关
+datalist/
+data/
+datasets/
+*.scp
+*.list
+*.txt.gz
+
+# 编译和构建产物
+build/
+dist/
+*.egg-info/
+*.whl
+*.deb
+*.rpm
+
+# 备份文件
+*.bak
+*.backup
+*.old
+*.orig
+*~
+#*#
+.#*
+
+# 编译文件
+*.o
+*.a
+*.lib
+*.dll
+*.dylib
+*.so.*

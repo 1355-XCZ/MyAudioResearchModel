@@ -8,9 +8,14 @@ import logging
 import sys
 from pathlib import Path
 
-from .corrected_data_generator import CorrectedDataGenerator
-from .config import load_config, save_config_template, get_config_summary
-from .utils import run_full_validation
+try:
+    from .corrected_data_generator import CorrectedDataGenerator
+    from .config import load_config, save_config_template, get_config_summary
+    from .utils import run_full_validation
+except ImportError:
+    from corrected_data_generator import CorrectedDataGenerator
+    from config import load_config, save_config_template, get_config_summary
+    from utils import run_full_validation
 
 # 设置日志
 logging.basicConfig(

@@ -40,6 +40,38 @@ def get_default_vevo_config() -> Dict:
     }
 
 
+def get_bigvgan_24khz_config() -> Dict:
+    """
+    获取BigVGAN 24kHz配置
+    用于与Vevo兼容的音频重建
+    
+    Returns:
+        BigVGAN 24kHz配置字典
+    """
+    return {
+        # 音频参数
+        "sample_rate": 24000,      # 24kHz采样率
+        "max_length": 240000,      # 最大音频长度 (10s at 24kHz)
+        "min_length": 2400,        # 最小音频长度 (0.1s at 24kHz)
+        
+        # Mel 频谱图参数 - BigVGAN 24kHz标准
+        "hop_size": 256,           # BigVGAN 24kHz hop_size
+        "n_fft": 1024,            # BigVGAN 24kHz n_fft  
+        "win_size": 1024,          # BigVGAN 24kHz win_size
+        "num_mels": 100,           # BigVGAN 24kHz使用100 mel channels
+        "fmin": 0,                 # 最小频率
+        "fmax": 12000,             # 最大频率 (24000/2)
+        
+        # BigVGAN特定参数
+        "model_name": "nvidia/bigvgan_v2_24khz_100band_256x",
+        "version": "24khz",
+        
+        # 处理参数
+        "power": 2.0,              # 功率谱
+        "normalized": False,       # 不使用 torchaudio 的标准化
+    }
+
+
 def get_flowse_compatible_config() -> Dict:
     """
     获取与 FlowSE 兼容的配置

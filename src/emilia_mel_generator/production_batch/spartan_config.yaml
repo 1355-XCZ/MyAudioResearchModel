@@ -1,0 +1,133 @@
+# Emilia数据集批处理配置文件 - Spartan集群专用
+# 基于提供的Spartan集群环境配置
+
+# 数据路径配置 (Spartan集群)
+data_paths:
+  # Emilia数据集根目录
+  input_data_root: "/data/gpfs/projects/punim2341/haoguangzhou/emilia_dataset"
+  
+  # 输出根目录
+  output_root: "/data/gpfs/projects/punim2341/haoguangzhou/emilia_output"
+  
+  # 临时文件目录
+  temp_dir: "/data/gpfs/projects/punim2341/haoguangzhou/temp"
+  
+  # 缓存目录
+  cache_dir: "/data/gpfs/projects/punim2341/haoguangzhou/cache"
+
+# 处理配置
+processing:
+  # 批处理大小
+  batch_size: 100
+  
+  # 检查点保存间隔（批次数）
+  checkpoint_interval: 50
+  
+  # 最大并行工作进程数
+  max_workers: 4
+  
+  # 计算设备
+  device: "cuda"
+  
+  # 是否启用检查点恢复
+  resume_from_checkpoint: true
+  
+  # 是否跳过已存在的输出文件
+  skip_existing: true
+
+# 模型配置
+models:
+  # BigVGAN配置
+  bigvgan:
+    model_name: "nvidia/bigvgan_v2_24khz_100band_256x"
+    sample_rate: 24000
+    hop_size: 256
+    n_mel_channels: 100
+  
+  # Vevo TTS配置
+  vevo_tts:
+    flow_matching_steps: 16
+    use_global_guided_inference: false
+    auto_download_models: true
+  
+  # Emotion2Vec配置
+  emotion2vec:
+    enable: true
+
+# 数据集配置
+dataset:
+  # 支持的语言
+  languages: ["en", "zh"]
+  
+  # 音频格式
+  audio_format: "wav"
+  
+  # 采样率
+  target_sample_rate: 24000
+  
+  # 最大音频长度（秒）
+  max_audio_duration: 30
+  
+  # 最小音频长度（秒）
+  min_audio_duration: 1
+
+# 输出配置
+output:
+  # 文件格式
+  mel_format: "npy"
+  emotion_format: "npz"
+  audio_format: "wav"
+  
+  # 压缩选项
+  compress_mels: false
+  compress_emotions: true
+  
+  # 验证音频生成
+  generate_verification_audio: true
+
+# 日志配置
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  
+  # 日志文件配置
+  file_logging:
+    enable: true
+    filename: "emilia_batch_processing.log"
+    max_size_mb: 100
+    backup_count: 5
+
+# 调度配置（Spartan集群专用）
+scheduling:
+  # SLURM配置
+  slurm:
+    partition: "gpu-a100-short"
+    nodes: 1
+    ntasks_per_node: 1
+    cpus_per_task: 8
+    mem: "32G"
+    gres: "gpu:1"
+    time: "04:00:00"
+    account: "punim2341"
+    mail_user: "haoguangz@student.unimelb.edu.au"
+    mail_type: "BEGIN,END,FAIL"
+  
+  # 环境配置（Spartan集群）
+  environment:
+    project_root: "/data/gpfs/projects/punim2341/haoguangzhou/MyAudioResearchModel"
+    conda_env: "marm5"
+    python_path: "/data/gpfs/projects/punim2341/haoguangzhou/miniconda3/envs/marm5/bin/python"
+    logs_dir: "/data/gpfs/projects/punim2341/haoguangzhou/logs"
+    
+# 监控配置
+monitoring:
+  # 进度报告间隔（样本数）
+  progress_report_interval: 100
+  
+  # 性能监控
+  monitor_gpu_usage: true
+  monitor_memory_usage: true
+  
+  # 错误阈值
+  max_consecutive_failures: 10
+  max_total_failure_rate: 0.1

@@ -1,0 +1,126 @@
+# Emilia数据集训练数据生成配置 - Spartan集群专用
+# 专为生成训练数据优化，不生成音频文件
+
+# 数据路径配置 (Spartan集群)
+data_paths:
+  # Emilia数据集根目录
+  input_data_root: "/data/gpfs/projects/punim2341/haoguangzhou/emilia_dataset"
+  
+  # 输出根目录
+  output_root: "/data/gpfs/projects/punim2341/haoguangzhou/emilia_training_data"
+  
+  # 临时文件目录
+  temp_dir: "/data/gpfs/projects/punim2341/haoguangzhou/temp"
+  
+  # 缓存目录（模型和数据缓存）
+  cache_dir: "/data/gpfs/projects/punim2341/haoguangzhou/cache"
+
+# 处理配置（训练数据生成优化）
+processing:
+  # 批处理大小（训练数据生成可以更大）
+  batch_size: 200
+  
+  # 检查点保存间隔（批次数）
+  checkpoint_interval: 25
+  
+  # 计算设备
+  device: "cuda"
+  
+  # 是否启用检查点恢复
+  resume_from_checkpoint: true
+  
+  # 是否跳过已存在的输出文件
+  skip_existing: true
+  
+  # 最大样本数（用于测试，设为null表示处理全部）
+  max_samples: null
+
+# 模型配置
+models:
+  # 只使用Vevo系统，不使用BigVGAN
+  vevo_tts:
+    flow_matching_steps: 16
+    use_global_guided_inference: false
+    auto_download_models: true
+  
+  # Emotion2Vec配置
+  emotion2vec:
+    enable: true
+
+# 输出配置（仅训练数据）
+output:
+  # 只生成训练所需的文件
+  mel_format: "npy"
+  emotion_format: "npz"
+  
+  # 不生成音频文件
+  generate_verification_audio: false
+  
+  # 训练数据专用标志
+  training_data_only: true
+  
+  # 压缩选项
+  compress_emotions: true
+
+# 数据集配置
+dataset:
+  # 支持的语言
+  languages: ["en", "zh"]
+  
+  # 采样率
+  target_sample_rate: 24000
+  
+  # 最大音频长度（秒）
+  max_audio_duration: 30
+  
+  # 最小音频长度（秒）
+  min_audio_duration: 1
+
+# 日志配置（简化）
+logging:
+  level: "INFO"
+  
+  # 进度条配置
+  progress_bar:
+    enable: true
+    update_interval: 1
+    show_rate: true
+    show_eta: true
+  
+  # 减少详细日志
+  verbose_logging: false
+
+# 调度配置（Spartan集群）
+scheduling:
+  # SLURM配置
+  slurm:
+    partition: "gpu-a100-short"
+    nodes: 1
+    ntasks_per_node: 1
+    cpus_per_task: 8
+    mem: "32G"
+    gres: "gpu:1"
+    time: "04:00:00"
+    account: "punim2341"
+    mail_user: "haoguangz@student.unimelb.edu.au"
+    mail_type: "BEGIN,END,FAIL"
+  
+  # 环境配置（Spartan集群）
+  environment:
+    project_root: "/data/gpfs/projects/punim2341/haoguangzhou/MyAudioResearchModel"
+    conda_env: "marm5"
+    python_path: "/data/gpfs/projects/punim2341/haoguangzhou/miniconda3/envs/marm5/bin/python"
+    logs_dir: "/data/gpfs/projects/punim2341/haoguangzhou/logs"
+
+# 监控配置（简化）
+monitoring:
+  # 进度报告间隔（样本数）
+  progress_report_interval: 500
+  
+  # 错误阈值
+  max_consecutive_failures: 20
+  max_total_failure_rate: 0.05
+  
+  # 性能监控（简化）
+  monitor_gpu_usage: false
+  monitor_memory_usage: false

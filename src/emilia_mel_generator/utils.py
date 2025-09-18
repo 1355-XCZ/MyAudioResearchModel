@@ -11,7 +11,10 @@ from typing import Dict, Tuple, List, Optional
 from pathlib import Path
 import logging
 
-from .config import get_default_vevo_config, get_flowse_compatible_config
+try:
+    from .config import get_default_vevo_config, get_flowse_compatible_config
+except ImportError:
+    from config import get_default_vevo_config, get_flowse_compatible_config
 
 logger = logging.getLogger(__name__)
 
