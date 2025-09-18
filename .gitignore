@@ -108,7 +108,7 @@ src/emilia_mel_generator/production_batch/emilia_dataset/
 src/emilia_mel_generator/production_batch/models/
 src/emilia_mel_generator/production_batch/*.tar.gz
 
-# Amphion模型和缓存
+# Amphion模型和缓存（保留代码文件，只忽略模型权重和缓存）
 src/Amphion/ckpts/
 src/Amphion/pretrained/
 src/Amphion/logs/
@@ -120,6 +120,21 @@ src/Amphion/egs/*/data/
 src/Amphion/models/*/ckpt/
 src/Amphion/models/*/exp/
 src/Amphion/models/*/data/
+
+# 但保留Amphion的代码文件（远程服务器需要）
+# 不忽略: src/Amphion/*.py, src/Amphion/models/**/*.py, src/Amphion/utils/**/*.py 等
+
+# 只忽略Amphion中的大文件和二进制文件
+src/Amphion/**/*.pth
+src/Amphion/**/*.pt
+src/Amphion/**/*.bin
+src/Amphion/**/*.safetensors
+src/Amphion/**/*.ckpt
+src/Amphion/**/*.tar
+src/Amphion/**/*.zip
+src/Amphion/**/*.wav
+src/Amphion/**/*.mp3
+src/Amphion/**/*.flac
 
 # VQ-VAE相关
 src/VQ-VAE/*/ckpt/
