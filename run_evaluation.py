@@ -93,7 +93,7 @@ def main():
     logger.info("加载模型")
     logger.info("="*80)
     
-    rvq_model = GroupedResidualVQ(config['rvq'])
+    rvq_model = GroupedResidualVQ(config['grouped_rvq'])
     rvq_checkpoint = torch.load(args.rvq_checkpoint, map_location=device)
     rvq_model.load_state_dict(rvq_checkpoint['model_state_dict'])
     rvq_model = rvq_model.to(device)
