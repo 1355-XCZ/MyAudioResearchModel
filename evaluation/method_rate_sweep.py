@@ -202,13 +202,22 @@ def rate_sweep_evaluation(
             logger.info(f"  平均码率: {avg_rate_bpf:.2f} bpf")
         
         # 保存这个码率点的结果
-        results['rate_points'][f'{target_rate_bpf}_bpf'] = rate_results
+        rate_key = "original" if target_rate_bpf == float('inf') else f'{target_rate_bpf}_bpf'
+        results['rate_points'][rate_key] = rate_results
     
     # 保存完整结果
     output_file = output_dir / f'rate_sweep_{dataset.name}.json'
     os.makedirs(output_file.parent, exist_ok=True)  # 确保目录存在
+    
+    # 处理inf值：在JSON中用"original"替代
+    results_serializable = results.copy()
+    results_serializable['target_rates_bpf'] = [
+        "original" if rate == float('inf') else rate 
+        for rate in target_rates_bpf
+    ]
+    
     with open(output_file, 'w') as f:
-        json.dump(results, f, indent=2)
+        json.dump(results_serializable, f, indent=2)
     
     logger.info(f"\n✅ 码率扫描评估完成: {dataset.name}")
     logger.info(f"  结果已保存: {output_file}")

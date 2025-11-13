@@ -44,8 +44,8 @@ class ResultAnalyzer:
             for key, rate_point in results['rate_points'].items():
                 if 'target_rate_bpf' in rate_point and len(rate_point.get('predictions', [])) > 0:
                     target_rate = rate_point['target_rate_bpf']
-                    # 跳过inf（无量化baseline）
-                    if target_rate != float('inf'):
+                    # 跳过inf/original（无量化baseline）
+                    if target_rate != float('inf') and key != "original":
                         rate_data.append({
                             'rate_bpf': target_rate,  # 使用目标码率，不是平均码率
                             'predictions': rate_point['predictions'],
