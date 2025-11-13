@@ -107,7 +107,11 @@ def main():
     entropy_model.eval()
     logger.info(f"✓ 熵模型已加载: {args.entropy_checkpoint}")
     
-    classifier = EmotionClassifierV2(device=device)
+    classifier = EmotionClassifierV2(
+        model_name="emotion2vec_plus_large",
+        hub="modelscope",
+        device=device
+    )
     logger.info(f"✓ 分类器已加载: emotion2vec+")
     
     # 加载数据集
