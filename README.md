@@ -17,6 +17,31 @@ This project studies how emotion recognition performance degrades under differen
 pip install -r requirements.txt
 ```
 
+### Configuration System
+
+Use YAML configs for different experiments:
+
+```bash
+# Training with default settings
+python train_rvq.py --config configs/default.yaml
+
+# Evaluation on IEMOCAP
+python run_evaluation_iemocap.py --dataset configs/datasets/iemocap.yaml
+
+# Quick test
+python run_evaluation_iemocap.py \
+  --dataset configs/datasets/iemocap.yaml \
+  --experiment configs/experiments/quick_test.yaml
+
+# Override parameters
+python run_evaluation_iemocap.py \
+  --dataset configs/datasets/iemocap.yaml \
+  --samples-per-emotion 50 \
+  --rates-bpf "10,30,50,100"
+```
+
+See `configs/README.md` for details.
+
 ### Training
 
 ```bash

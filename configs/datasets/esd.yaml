@@ -1,0 +1,18 @@
+# ESD Dataset Configuration  
+# Extends default.yaml
+
+# Dataset specific settings
+dataset:
+  name: "ESD"
+  emotions: ["angry", "happy", "neutral", "sad", "surprised"]  # 5 emotions
+  samples_per_emotion: 100
+  languages: ["EN", "ZH"]  # Bilingual
+  
+  data_root: null
+  features_dir: "ESD"
+
+# Evaluation
+evaluation:
+  rate_sweep:
+    rates_bpf: null  # use default
+

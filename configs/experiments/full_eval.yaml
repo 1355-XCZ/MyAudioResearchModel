@@ -1,0 +1,20 @@
+# Full Evaluation Configuration
+# Complete evaluation with all rate points
+
+evaluation:
+  rate_sweep:
+    rates_bpf: [
+      # Dense sampling in critical region (0-50)
+      2, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50,
+      # Medium sampling (50-200)
+      60, 80, 100, 150, 200,
+      # Sparse sampling (200+)
+      300, 500, inf
+    ]
+  
+  layer_sweep:
+    layers: [12, 24, 36, 48, 60, 72, 84, 96]  # More detailed
+
+dataset:
+  samples_per_emotion: 100  # Full evaluation
+

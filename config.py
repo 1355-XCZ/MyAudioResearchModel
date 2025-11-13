@@ -14,11 +14,6 @@ class GroupedRVQConfig:
     num_groups: int = 12                # 分组数
     group_dim: int = 64                 # 每组维度 (768/12=64)
     
-    # 全局粗层（可选，暂不启用）
-    num_coarse_layers: int = 1          # 粗量化层数
-    coarse_codebook_size: int = 256     # 粗层码本大小
-    use_coarse: bool = False            # 是否使用粗层（暂不启用）
-    
     # 组内细层
     num_fine_layers: int = 16           # 每组细量化层数
     fine_codebook_size: int = 128       # 细层码本大小
@@ -53,9 +48,7 @@ class GroupedRVQConfig:
     def max_bits_per_frame(self) -> float:
         """理论最大bits/frame"""
         import numpy as np
-        coarse_bits = self.num_coarse_layers * np.log2(self.coarse_codebook_size) if self.use_coarse else 0
-        fine_bits = self.num_groups * self.num_fine_layers * np.log2(self.fine_codebook_size)
-        return coarse_bits + fine_bits
+        return self.num_groups * self.num_fine_layers * np.log2(self.fine_codebook_size)
 
 
 @dataclass
@@ -81,27 +74,21 @@ class EntropyModelConfig:
     # 性能优化
     enable_optimizations: bool = True   # 启用性能优化
     max_frames_per_sample: int = 128     # 裁剪长序列（降低显存）
-    frame_stride: int = 1               # 帧下采样
     use_amp: bool = True                # 混合精度
     use_tf32: bool = True               # TF32加速
-    pack_frames: bool = False           # 帧打包
     
     def get_effective_config(self):
         """返回实际优化配置"""
         if not self.enable_optimizations:
             return {
                 'max_frames_per_sample': 0,
-                'frame_stride': 1,
                 'use_amp': False,
                 'use_tf32': False,
-                'pack_frames': False,
             }
         return {
             'max_frames_per_sample': self.max_frames_per_sample,
-            'frame_stride': self.frame_stride,
             'use_amp': self.use_amp,
             'use_tf32': self.use_tf32,
-            'pack_frames': self.pack_frames,
         }
     
     # 上下文（帧内AR）
@@ -222,11 +209,11 @@ class EvaluationConfig:
 @dataclass
 class DataConfig:
     """数据配置"""
-    # 数据根目录
-    data_root: str = "/data/gpfs/projects/punim2341/haoguangzhou/data"
+    # 数据根目录（从环境变量或配置文件读取）
+    data_root: Optional[str] = None
     
     # 训练数据（100h中英文）
-    train_data_dir: str = "emilia_vevo_training_50h"  # 包含EN/和ZH/子目录
+    train_data_dir: str = "training_data"
     
     # 特征文件命名模式
     feature_suffix: str = "_ev2_frame.npy"

@@ -1,0 +1,29 @@
+#!/bin/bash
+# 本地配置文件模板
+# 复制此文件为 local_config.sh 并填入您的实际配置
+
+# Hugging Face Token
+export HF_TOKEN="your_huggingface_token_here"
+
+# 项目路径
+export PROJECT_ROOT="/path/to/your/project"
+
+# 缓存路径
+export CACHE_PATH="/path/to/cache"
+export HF_HOME="${CACHE_PATH}/huggingface"
+export TRANSFORMERS_CACHE="${CACHE_PATH}/transformers"
+export HF_DATASETS_CACHE="${CACHE_PATH}/datasets"
+
+# 虚拟环境路径
+export VENV_PATH="/path/to/your/venv"
+
+# 日志路径
+export LOG_PATH="/path/to/logs"
+
+# Slurm账户设置
+export SLURM_ACCOUNT="your_account"
+export SLURM_PARTITION="gpu-partition"
+
+# 数据路径
+export EVAL_FEATURES_ROOT="/path/to/evaluation_features"
+

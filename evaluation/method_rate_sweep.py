@@ -206,6 +206,7 @@ def rate_sweep_evaluation(
     
     # 保存完整结果
     output_file = output_dir / f'rate_sweep_{dataset.name}.json'
+    os.makedirs(output_file.parent, exist_ok=True)  # 确保目录存在
     with open(output_file, 'w') as f:
         json.dump(results, f, indent=2)
     

@@ -1,41 +1,31 @@
 #!/bin/bash
-#SBATCH --account=punim2341
-#SBATCH --partition=gpu-l40s
-#SBATCH --nodes=1
-#SBATCH --gpus=1
-#SBATCH --mem=64G
-#SBATCH --time=12:00:00
 #SBATCH --job-name=eval_esd
-#SBATCH --output=/data/gpfs/projects/punim2341/haoguangzhou/logs/eval_esd_%j.out
-#SBATCH --error=/data/gpfs/projects/punim2341/haoguangzhou/logs/eval_esd_%j.err
+#SBATCH --output=logs/eval_esd_%j.out
+#SBATCH --error=logs/eval_esd_%j.err
+#SBATCH --time=8:00:00
+#SBATCH --partition=gpu-a100
+#SBATCH --gres=gpu:1
+#SBATCH --mem=32G
 
-PROJECT_ROOT="/data/gpfs/projects/punim2341/haoguangzhou/voice/MyAudioResearchModel"
+# 加载本地配置
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+if [ -f "$PROJECT_DIR/local_config.sh" ]; then
+    source "$PROJECT_DIR/local_config.sh"
+fi
+
 cd "$PROJECT_ROOT" || exit 1
 
+# 加载模块
 module purge
 module load GCCcore/11.3.0 Python/3.10.4 GCC/11.3.0 OpenMPI/4.1.4
 module load FFmpeg/4.4.2 espeak-ng/1.52 CUDA/11.8.0 cuDNN/8.7.0.84-CUDA-11.8.0
 
-source /data/gpfs/projects/punim2341/haoguangzhou/venvs/vevo-source-fix/bin/activate
+source "$VENV_PATH/bin/activate"
 
 export PYTHONUNBUFFERED=1
 export PYTHONPATH="${PROJECT_ROOT}/src:${PROJECT_ROOT}/src/Amphion:${PYTHONPATH}"
-export CACHE_PATH="/data/gpfs/projects/punim2341/haoguangzhou/cache"
-export HF_HOME="${CACHE_PATH}/huggingface"
-export TRANSFORMERS_CACHE="${CACHE_PATH}/transformers"
-export HF_DATASETS_CACHE="${CACHE_PATH}/datasets"
 
-cd ${PROJECT_ROOT}/src/Amphion/models/vc/my_publish_emo_rvq_bottleneck
-
-echo "=========================================="
-echo "ESD评估（100样本/情感，22码率点）"
-echo "=========================================="
-echo "开始时间: $(date)"
-
-python run_evaluation_esd.py
-
-echo ""
-echo "=========================================="
-echo "完成时间: $(date)"
-echo "=========================================="
+# 运行评估
+python run_evaluation.py --dataset esd "$@"
 

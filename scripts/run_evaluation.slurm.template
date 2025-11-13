@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=eval_iemocap
-#SBATCH --output=logs/eval_iemocap_%j.out
-#SBATCH --error=logs/eval_iemocap_%j.err
+#SBATCH --job-name=eval_%DATASET%
+#SBATCH --output=logs/eval_%DATASET%_%j.out
+#SBATCH --error=logs/eval_%DATASET%_%j.err
 #SBATCH --time=8:00:00
 #SBATCH --partition=gpu-a100
 #SBATCH --gres=gpu:1
@@ -27,5 +27,5 @@ export PYTHONUNBUFFERED=1
 export PYTHONPATH="${PROJECT_ROOT}/src:${PROJECT_ROOT}/src/Amphion:${PYTHONPATH}"
 
 # 运行评估
-python run_evaluation.py --dataset iemocap "$@"
+python run_evaluation.py --dataset %DATASET% "$@"
 

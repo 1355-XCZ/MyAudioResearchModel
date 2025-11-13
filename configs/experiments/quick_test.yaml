@@ -1,0 +1,27 @@
+# Quick Test Configuration
+# Faster settings for development and testing
+
+# Override training for faster iteration
+training:
+  rvq:
+    num_epochs: 5
+    batch_size: 16
+    early_stopping:
+      patience: 2
+  
+  entropy:
+    num_epochs: 2
+    batch_size: 8
+
+# Smaller evaluation
+evaluation:
+  rate_sweep:
+    rates_bpf: [10, 30, 50, inf]  # Only 4 points
+  
+  layer_sweep:
+    layers: [12, 36, 60]  # Only 3 points
+
+# Dataset sampling
+dataset:
+  samples_per_emotion: 20  # Much smaller for quick test
+

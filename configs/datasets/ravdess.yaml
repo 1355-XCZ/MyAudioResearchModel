@@ -1,0 +1,17 @@
+# RAVDESS Dataset Configuration
+# Extends default.yaml
+
+# Dataset specific settings
+dataset:
+  name: "RAVDESS"
+  emotions: ["angry", "disgust", "fearful", "happy", "neutral", "sad", "surprised"]  # 7 emotions
+  samples_per_emotion: 100
+  
+  data_root: null
+  features_dir: "RAVDESS"
+
+# Evaluation
+evaluation:
+  rate_sweep:
+    rates_bpf: null  # use default
+
