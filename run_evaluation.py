@@ -126,7 +126,7 @@ def main():
     )
     
     logger.info(f"✓ {args.dataset.upper()}数据集已加载")
-    logger.info(f"  情感类别: {dataset.emotion_labels}")
+    logger.info(f"  数据集: {dataset.name}")
     logger.info(f"  总样本数: {len(dataset)}")
     
     # 运行评估
