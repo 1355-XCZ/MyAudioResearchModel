@@ -58,9 +58,9 @@ def parse_args():
                        help='码率点 (逗号分隔, 如 "10,30,50,100")')
     parser.add_argument('--output-dir', type=str, default='evaluation_results',
                        help='输出目录 (默认: evaluation_results)')
-    parser.add_argument('--rvq-checkpoint', type=str, default='checkpoints/grouped_rvq_model.pt',
+    parser.add_argument('--rvq-checkpoint', type=str, default='checkpoints/grouped_rvq_best.pt',
                        help='RVQ模型路径')
-    parser.add_argument('--entropy-checkpoint', type=str, default='checkpoints/entropy_model.pt',
+    parser.add_argument('--entropy-checkpoint', type=str, default='checkpoints/entropy_model_best.pt',
                        help='熵模型路径')
     return parser.parse_args()
 
