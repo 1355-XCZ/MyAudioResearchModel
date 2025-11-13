@@ -121,8 +121,8 @@ def main():
     
     DatasetClass = DATASETS[args.dataset]
     dataset = DatasetClass(
-        samples_per_emotion=args.samples,
-        feature_type='emotion2vec_frame'
+        data_root=config['data'].data_root,
+        samples_per_emotion=args.samples
     )
     
     logger.info(f"✓ {args.dataset.upper()}数据集已加载")
