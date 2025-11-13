@@ -8,8 +8,13 @@
 #SBATCH --mem=64G
 #SBATCH --time=36:00:00
 #SBATCH --job-name=train_entropy
-#SBATCH --output=/data/gpfs/projects/punim2341/haoguangzhou/logs/train_entropy_%j.out
-#SBATCH --error=/data/gpfs/projects/punim2341/haoguangzhou/logs/train_entropy_%j.err
+#SBATCH --output=./logs/train_entropy_%j.out
+#SBATCH --error=./logs/train_entropy_%j.err
+
+# 加载本地配置
+if [ -f ./local_config.sh ]; then
+    source ./local_config.sh
+fi
 
 # 加载模块
 module purge
@@ -19,14 +24,17 @@ module load GCC/11.3.0
 module load CUDA/11.8.0
 module load cuDNN/8.7.0.84-CUDA-11.8.0
 
-# 激活虚拟环境
-source /data/gpfs/projects/punim2341/haoguangzhou/venvs/vevo-source-fix/bin/activate
+# 激活虚拟环境（如果配置了）
+if [ -n "$VENV_PATH" ] && [ -f "$VENV_PATH/bin/activate" ]; then
+    source "$VENV_PATH/bin/activate"
+fi
 
 # 进入项目目录
-cd /data/gpfs/projects/punim2341/haoguangzhou/voice/MyAudioResearchModel/src/Amphion/models/vc/my_publish_emo_rvq_bottleneck
+cd "$(dirname "$0")/.."
 
 # 设置环境变量
-export PYTHONPATH=/data/gpfs/projects/punim2341/haoguangzhou/voice/MyAudioResearchModel/src:$PYTHONPATH
+export PROJECT_ROOT=$(pwd)
+export PYTHONPATH=$PROJECT_ROOT:$PYTHONPATH
 
 # 运行熵模型训练
 echo "开始无条件熵模型 q(z) 训练（使用100h中英文数据）..."

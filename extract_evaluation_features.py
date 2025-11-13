@@ -100,8 +100,9 @@ def main():
     model = AutoModel(model="emotion2vec/emotion2vec_base", hub="hf", device=str(device))
     logger.info("✅ 模型加载成功")
     
-    data_root = Path("/data/gpfs/projects/punim2341/haoguangzhou/data")
-    output_root = Path("/data/gpfs/projects/punim2341/haoguangzhou/data/evaluation_features")
+    # 使用环境变量或相对路径（用户通过 local_config.sh 配置）
+    data_root = Path(os.environ.get("DATASET_ROOT", "./raw_data"))
+    output_root = Path(os.environ.get("EVAL_FEATURES_ROOT", "./data"))
     
     logger.info("\nRAVDESS")
     process_ravdess(data_root / "RAVDESS", output_root / "RAVDESS", model)

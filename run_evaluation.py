@@ -13,7 +13,7 @@ import argparse
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+# 项目现在是自包含的，不需要引用外层 Amphion 代码
 
 from config import get_default_config
 from grouped_rvq import GroupedResidualVQ

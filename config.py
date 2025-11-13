@@ -319,9 +319,10 @@ class SlurmConfig:
     memory: str = "32G"
     time_limit: str = "08:00:00"
     
-    project_root: str = "/data/gpfs/projects/punim2341/haoguangzhou/voice/MyAudioResearchModel"
-    log_dir: str = "/data/gpfs/projects/punim2341/haoguangzhou/logs"
-    venv_path: str = "/data/gpfs/projects/punim2341/haoguangzhou/venvs/vevo-source-fix"
+    # 使用环境变量或当前目录（用户可通过 local_config.sh 配置）
+    project_root: str = os.environ.get("PROJECT_ROOT", os.getcwd())
+    log_dir: str = os.environ.get("LOG_PATH", "./logs")
+    venv_path: str = os.environ.get("VENV_PATH", "")
     
     modules: List[str] = field(default_factory=lambda: [
         "GCCcore/11.3.0",
