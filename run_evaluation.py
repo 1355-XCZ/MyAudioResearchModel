@@ -100,7 +100,7 @@ def main():
     rvq_model.eval()
     logger.info(f"✓ RVQ模型已加载: {args.rvq_checkpoint}")
     
-    entropy_model = create_entropy_model(config['entropy_model'])
+    entropy_model = create_entropy_model(config['entropy_model'], config['grouped_rvq'])
     entropy_checkpoint = torch.load(args.entropy_checkpoint, map_location=device)
     entropy_model.load_state_dict(entropy_checkpoint['model_state_dict'])
     entropy_model = entropy_model.to(device)
