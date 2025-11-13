@@ -1,0 +1,127 @@
+{
+  "dataset": "IEMOCAP",
+  "num_layers_list": [
+    16,
+    96,
+    192
+  ],
+  "emotion_mapping": {
+    "ang": "angry",
+    "hap": "happy",
+    "sad": "sad",
+    "neu": "neutral",
+    "fru": "angry",
+    "exc": "happy",
+    "sur": "surprised",
+    "fea": "fearful",
+    "dis": "disgusted",
+    "oth": "other"
+  },
+  "layer_points": {
+    "16_layers": {
+      "num_layers": 16,
+      "predictions": [
+        "sad",
+        "sad",
+        "neutral",
+        "neutral",
+        "happy",
+        "happy",
+        "angry",
+        "angry"
+      ],
+      "ground_truths": [
+        "sad",
+        "sad",
+        "other",
+        "other",
+        "other",
+        "other",
+        "other",
+        "other"
+      ],
+      "confidences": [
+        0.6658221483230591,
+        0.30787214636802673,
+        0.8566473722457886,
+        0.6310846209526062,
+        0.8157967329025269,
+        0.555766761302948,
+        0.8815069794654846,
+        0.7224456071853638
+      ],
+      "accuracy": 0.25,
+      "avg_confidence": 0.6796177960932255
+    },
+    "96_layers": {
+      "num_layers": 96,
+      "predictions": [
+        "sad",
+        "sad",
+        "neutral",
+        "neutral",
+        "happy",
+        "happy",
+        "angry",
+        "angry"
+      ],
+      "ground_truths": [
+        "sad",
+        "sad",
+        "other",
+        "other",
+        "other",
+        "other",
+        "other",
+        "other"
+      ],
+      "confidences": [
+        0.9996267557144165,
+        0.8358513116836548,
+        0.9999922513961792,
+        0.9999915361404419,
+        0.9997490048408508,
+        0.9761239290237427,
+        0.9999333620071411,
+        0.9999455213546753
+      ],
+      "accuracy": 0.25,
+      "avg_confidence": 0.9764017090201378
+    },
+    "192_layers": {
+      "num_layers": 192,
+      "predictions": [
+        "sad",
+        "sad",
+        "neutral",
+        "neutral",
+        "happy",
+        "happy",
+        "angry",
+        "angry"
+      ],
+      "ground_truths": [
+        "sad",
+        "sad",
+        "other",
+        "other",
+        "other",
+        "other",
+        "other",
+        "other"
+      ],
+      "confidences": [
+        0.9999942779541016,
+        0.9029633402824402,
+        1.0,
+        1.0,
+        0.9999980926513672,
+        0.9955024123191833,
+        0.9999986886978149,
+        0.9999992847442627
+      ],
+      "accuracy": 0.25,
+      "avg_confidence": 0.9873070120811462
+    }
+  }
+}

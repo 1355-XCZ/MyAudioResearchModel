@@ -1,0 +1,87 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# PyTorch
+*.pt
+*.pth
+*.ckpt
+
+# Exceptions: keep best models
+!checkpoints/grouped_rvq_best.pt
+!checkpoints/entropy_model_best.pt
+
+# Training outputs
+checkpoints/logs/
+checkpoints/results/
+indices_cache/
+*.log
+
+# Evaluation results (optional: keep or ignore)
+evaluation_results/
+evaluation_quick_v2_results/
+
+# Data files (too large for git)
+*.npy
+*.npz
+*.wav
+*.flac
+*.mp3
+
+# Exceptions: keep normalization parameters
+!ev2_mean_std_100h_EN_ZH.npz
+
+# Slurm outputs
+slurm-*.out
+*.slurm.out
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+tmp/
+temp/
+
+# Archive (optional: can keep in git for reference)
+# archive/
+
+# Documentation builds
+docs/_build/
+docs/.doctrees/
