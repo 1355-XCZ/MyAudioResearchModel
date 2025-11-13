@@ -42,23 +42,6 @@ class GroupedResidualVQ(nn.Module):
         self.num_groups = config.num_groups
         self.group_dim = config.feature_dim // config.num_groups
         
-        # 全局粗层（可选，使用EMA模式）
-        self.use_coarse = config.use_coarse
-        if self.use_coarse:
-            self.coarse_vq = VectorQuantize(
-                dim=self.group_dim,
-                codebook_size=config.coarse_codebook_size,
-                decay=config.decay,  # EMA模式
-                commitment_weight=config.commitment_weight,
-                kmeans_init=config.kmeans_init,
-                kmeans_iters=config.kmeans_iters,
-                threshold_ema_dead_code=config.threshold_ema_dead_code,
-            )
-            self.num_coarse_layers = config.num_coarse_layers
-        else:
-            self.coarse_vq = None
-            self.num_coarse_layers = 0
-        
         # 组内细层（每组独立，使用EMA模式）
         self.fine_vqs = nn.ModuleList()
         for g in range(config.num_groups):
@@ -83,8 +66,6 @@ class GroupedResidualVQ(nn.Module):
         logger.info(f"✅ GroupedResidualVQ 初始化:")
         logger.info(f"   - 特征维度: {self.feature_dim}")
         logger.info(f"   - 分组: {self.num_groups} 组 × {self.group_dim} 维")
-        if self.use_coarse:
-            logger.info(f"   - 粗层: {self.num_coarse_layers} 层 × {config.coarse_codebook_size} 码")
         logger.info(f"   - 细层: 每组 {config.num_fine_layers} 层 × {config.fine_codebook_size} 码")
         logger.info(f"   - SKIP: {'启用' if self.enable_skip else '禁用'}")
     
@@ -136,13 +117,7 @@ class GroupedResidualVQ(nn.Module):
         # 健康监控：残差能量（每层）
         residual_energies = []  # 用于诊断"层是否学到有效方向"
         
-        # ===== 1. 全局粗层（可选）=====
-        if self.use_coarse:
-            # 对所有组应用相同的粗量化（共享码本）
-            # 这里简化：只对第一组做粗层演示（实际可全局或每组独立）
-            pass  # 暂时跳过，专注于组内细层
-        
-        # ===== 2. 组内细层（残差量化 + SKIP）=====
+        # ===== 组内细层（残差量化 + SKIP）=====
         # 预分配帧内历史缓存（用于熵模型判决）
         total_layers = self.num_groups * self.config.num_fine_layers
         all_indices_buffer = torch.full(
