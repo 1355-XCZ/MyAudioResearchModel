@@ -82,8 +82,8 @@ Thumbs.db
 tmp/
 temp/
 
-# Archive (optional: can keep in git for reference)
-# archive/
+# Archive (historical files, not for release)
+archive/
 
 # Documentation builds
 docs/_build/
