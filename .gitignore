@@ -88,3 +88,7 @@ archive/
 # Documentation builds
 docs/_build/
 docs/.doctrees/
+
+# data目录：追踪文件夹但不追踪内容
+data/*
+!data/.gitkeep
