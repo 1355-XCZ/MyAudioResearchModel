@@ -231,6 +231,11 @@ class DataConfig:
     mean_std_path: Optional[str] = "ev2_mean_std_100h_EN_ZH.npz"  # 归一化参数路径（待计算）
     supported_languages: Optional[List[str]] = field(default_factory=lambda: ['EN', 'ZH'])  # 使用100h中英文数据
     
+    def __post_init__(self):
+        """从环境变量读取data_root（如果未设置）"""
+        if self.data_root is None:
+            self.data_root = os.environ.get("DATA_ROOT", "./data")
+    
     # 情感标签映射（训练数据无标签，用于评估时的占位）
     @property
     def emotion_label_map(self) -> dict:
