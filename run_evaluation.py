@@ -120,8 +120,10 @@ def main():
     logger.info("="*80)
     
     DatasetClass = DATASETS[args.dataset]
+    # 数据集路径：data_root/DATASET_NAME/
+    dataset_data_root = Path(config['data'].data_root) / args.dataset.upper()
     dataset = DatasetClass(
-        data_root=config['data'].data_root,
+        data_root=str(dataset_data_root),
         samples_per_emotion=args.samples
     )
     
