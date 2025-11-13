@@ -28,6 +28,9 @@ class IEMOCAPDataset(EmotionDataset):
         super().__init__(data_root)
         self._num_classes = 10  # 有效情感类别数（排除xxx）
         self.samples_per_emotion = samples_per_emotion
+        
+        # 加载样本
+        self.samples = self.load_samples()
     
     @property
     def name(self) -> str:

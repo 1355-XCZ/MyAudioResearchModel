@@ -36,6 +36,9 @@ class ESDDataset(EmotionDataset):
         self.languages = languages or ['english', 'chinese']
         self.samples_per_emotion = samples_per_emotion
         
+        # 加载样本
+        self.samples = self.load_samples()
+        
     @property
     def name(self) -> str:
         return "ESD"

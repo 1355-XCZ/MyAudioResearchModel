@@ -40,6 +40,9 @@ class RAVDESSDataset(EmotionDataset):
             '07': 'disgust',
             '08': 'surprised'
         }
+        
+        # 加载样本
+        self.samples = self.load_samples()
     
     @property
     def name(self) -> str:
