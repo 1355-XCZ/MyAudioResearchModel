@@ -137,11 +137,10 @@ def main():
     results = rate_sweep_evaluation(
         rvq_model=rvq_model,
         entropy_model=entropy_model,
-        classifier=classifier,
         dataset=dataset,
-        rate_controller_config=config['rate_control'],
         target_rates_bpf=config['evaluation'].rate_sweep_rates_bpf,
-        output_dir=Path(args.output_dir),
+        classifier=classifier,
+        output_dir=str(Path(args.output_dir)),
         device=device
     )
     
