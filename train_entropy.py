@@ -56,15 +56,16 @@ def masked_token_kl(student_logits, teacher_logits, valid_mask, temperature=1.0)
     return (kl * mask_tokens).sum() / mask_tokens.sum()
 
 
-def extract_indices_from_rvq(rvq_model, dataloader, device, target_bpf=None):
+def extract_indices_from_rvq(rvq_model, dataloader, device, target_bpf=None, ecvq_lambda=None):
     """
-    用训练好的RVQ提取所有样本的离散索引（支持带SKIP的分位数门控）
+    用训练好的RVQ提取所有样本的离散索引（支持带SKIP的ECVQ）
     
     Args:
         rvq_model: 训练好的GroupedResidualVQ
         dataloader: 数据加载器
         device: 设备
-        target_bpf: 目标码率（bits per frame），使用分位数门控
+        target_bpf: 目标码率（bits per frame），使用分位数门控（复杂方式）
+        ecvq_lambda: 直接指定λ值（简单方式，优先使用）
     
     Returns:
         all_indices: List of (T, L) tensors (uint8格式)
@@ -87,7 +88,17 @@ def extract_indices_from_rvq(rvq_model, dataloader, device, target_bpf=None):
             t_idx = torch.arange(T, device=device).unsqueeze(0)
             valid_bt = (t_idx < lengths.unsqueeze(1))  # (B, T)
             
-            # 用RVQ编码（分位数门控）
+            # 用RVQ编码
+            if ecvq_lambda is not None:
+                # 简单方式：直接用λ值（旧代码方式）
+                _, indices, _, _ = rvq_model(
+                    features,
+                    lambda_rate=torch.tensor(ecvq_lambda, device=device),
+                    entropy_model=None,  # 关键：走简化ECVQ分支
+                    valid_mask=valid_bt
+                )
+            else:
+                # 分位数门控方式（新方式）
             _, indices, _, _ = rvq_model(
                 features,
                 lambda_rate=None,
@@ -538,7 +549,7 @@ def main():
     logger.info("初始化RVQ模型...")
     rvq_model = GroupedResidualVQ(grouped_rvq_config).to(device)
     
-    # 加载RVQ checkpoint
+    # 加载RVQ checkpoint（使用本地训练的checkpoint）
     rvq_checkpoint_path = Path('checkpoints/grouped_rvq_best.pt')
     
     if rvq_checkpoint_path.exists():
@@ -584,10 +595,10 @@ def main():
     # 3. 用RVQ提取训练集的离散索引（包含SKIP，让熵模型学习SKIP的概率）
     logger.info("提取训练集索引（使用简化ECVQ生成带SKIP的样本）...")
     
-    # 使用目标bpf网格生成多样化的SKIP模式（分位数门控 - 朋友方案）
-    target_bpf_grid = entropy_model_config.target_bpf_grid
-    logger.info(f"使用 {len(target_bpf_grid)} 个目标bpf: {target_bpf_grid}")
-    logger.info(f"0-100 bpf区间点数: {sum(1 for x in target_bpf_grid if x <= 100)}")
+    # 使用多个λ值生成多样化的SKIP模式（恢复旧代码的简单方式）
+    # λ越大，SKIP越多，码率越低
+    lambda_grid = [0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0]
+    logger.info(f"使用 {len(lambda_grid)} 个λ值: {lambda_grid}")
     
     # 创建索引缓存目录
     indices_cache_dir = Path("indices_cache")
@@ -595,21 +606,21 @@ def main():
     
     train_indices, train_labels, train_masks = [], [], []
     
-    for idx, target_bpf in enumerate(target_bpf_grid):
-        cache_file = indices_cache_dir / f"bpf_{target_bpf:.1f}.pt"
+    for idx, lam in enumerate(lambda_grid):
+        cache_file = indices_cache_dir / f"lambda_{lam:.2f}.pt"
         
-        # 检查是否已有缓存
+        # 检查缓存
         if cache_file.exists():
-            logger.info(f"  目标码率={target_bpf} bpf: 从缓存加载...")
+            logger.info(f"  λ={lam}: 从缓存加载...")
             cached = torch.load(cache_file)
             idxs = cached['indices']
             labs = cached['labels']
             masks = cached['masks']
             logger.info(f"    ✅ 从缓存加载: {len(idxs)}个样本")
         else:
-            logger.info(f"  目标码率={target_bpf} bpf 抽取索引...")
+            logger.info(f"  λ={lam} 抽取索引...")
             idxs, labs, masks = extract_indices_from_rvq(
-                rvq_model, train_loader, device, target_bpf=target_bpf
+                rvq_model, train_loader, device, ecvq_lambda=lam
             )
             
             # 立即保存到磁盘（防止崩溃丢失）
@@ -624,9 +635,6 @@ def main():
         train_labels += labs
         train_masks += masks
         logger.info(f"    → 累计 {len(train_indices)} 个样本")
-        
-        # 清理GPU缓存
-        torch.cuda.empty_cache()
     
     logger.info(f"✅ 总共提取 {len(train_indices)} 个样本（包含多种SKIP模式，覆盖宽码率范围）")
     

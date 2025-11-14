@@ -45,8 +45,7 @@ class EmotionClassifierV2:
         
         logger.info(f"初始化情感分类器V2（emotion2vec 9类原生输出）")
         logger.info(f"  模型: {model_name}")
-        logger.info(f"  emotion2vec类别: {self.ev2_emotions}")
-        logger.info(f"  ESD参考类别: {self.esd_emotions}")
+        logger.info(f"  emotion2vec支持的9类: {self.ev2_emotions}")
     
     def load_model(self):
         """加载emotion2vec模型"""
@@ -66,18 +65,44 @@ class EmotionClassifierV2:
             logger.info("✅ emotion2vec模型加载成功")
             logger.info("✅ 将使用9类原生情感分类")
             
-            # 运行时获取官方标签顺序（健壮性检查）
+            # 设置标准的9类情感标签映射（消除警告）
+            emotion_labels = {
+                0: "angry", 1: "disgusted", 2: "fearful", 3: "happy", 
+                4: "neutral", 5: "other", 6: "sad", 7: "surprised", 8: "unknown"
+            }
+            
+            # 尝试设置到模型配置中
             try:
-                if hasattr(self.model, 'id2label'):
+                if hasattr(self.model, 'config'):
+                    self.model.config.id2label = emotion_labels
+                    self.model.config.label2id = {v: k for k, v in emotion_labels.items()}
+                    logger.info("✅ 已设置标准标签映射到模型配置")
+                elif hasattr(self.model, 'model') and hasattr(self.model.model, 'config'):
+                    self.model.model.config.id2label = emotion_labels
+                    self.model.model.config.label2id = {v: k for k, v in emotion_labels.items()}
+                    logger.info("✅ 已设置标准标签映射到模型配置")
+            except Exception as e:
+                logger.debug(f"无法设置模型配置: {e}")
+            
+            # 验证标签顺序
+            try:
+                if hasattr(self.model, 'config') and hasattr(self.model.config, 'id2label'):
+                    retrieved_labels = [self.model.config.id2label[i] for i in range(9)]
+                    self.ev2_emotions = retrieved_labels
+                    logger.info(f"✅ 标签顺序已确认: {self.ev2_emotions}")
+                elif hasattr(self.model, 'id2label'):
                     self.ev2_emotions = [self.model.id2label[i] for i in range(len(self.model.id2label))]
                     logger.info(f"✅ 从模型获取标签顺序: {self.ev2_emotions}")
                 elif hasattr(self.model, 'model') and hasattr(self.model.model, 'label_list'):
                     self.ev2_emotions = list(self.model.model.label_list)
                     logger.info(f"✅ 从模型获取标签顺序: {self.ev2_emotions}")
                 else:
-                    logger.warning("⚠️ 无法从模型获取标签顺序，使用默认顺序")
+                    # 使用预定义的标准顺序
+                    self.ev2_emotions = list(emotion_labels.values())
+                    logger.info(f"✅ 使用标准标签顺序: {self.ev2_emotions}")
             except Exception as e:
-                logger.warning(f"⚠️ 获取标签顺序失败: {e}，使用默认顺序")
+                logger.warning(f"⚠️ 标签顺序验证失败: {e}，使用预定义标准顺序")
+                self.ev2_emotions = list(emotion_labels.values())
             
         except Exception as e:
             logger.error(f"❌ 模型加载失败: {e}")

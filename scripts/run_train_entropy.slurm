@@ -8,8 +8,8 @@
 #SBATCH --mem=64G
 #SBATCH --time=36:00:00
 #SBATCH --job-name=train_entropy
-#SBATCH --output=./logs/train_entropy_%j.out
-#SBATCH --error=./logs/train_entropy_%j.err
+#SBATCH --output=/data/gpfs/projects/punim2341/haoguangzhou/logs/train_entropy_%j.out
+#SBATCH --error=/data/gpfs/projects/punim2341/haoguangzhou/logs/train_entropy_%j.err
 
 # 加载本地配置
 if [ -f ./local_config.sh ]; then
@@ -30,10 +30,11 @@ if [ -n "$VENV_PATH" ] && [ -f "$VENV_PATH/bin/activate" ]; then
 fi
 
 # 进入项目目录
-cd "$(dirname "$0")/.."
+PROJECT_DIR="/data/gpfs/projects/punim2341/haoguangzhou/voice/my-research/to_ready/MyAudioResearchModel"
+cd "$PROJECT_DIR"
 
 # 设置环境变量
-export PROJECT_ROOT=$(pwd)
+export PROJECT_ROOT="$PROJECT_DIR"
 export PYTHONPATH=$PROJECT_ROOT:$PYTHONPATH
 
 # 运行熵模型训练

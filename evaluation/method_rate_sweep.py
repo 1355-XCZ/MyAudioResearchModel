@@ -5,6 +5,7 @@
 
 import torch
 import numpy as np
+import os
 from pathlib import Path
 from tqdm import tqdm
 import logging
@@ -67,6 +68,7 @@ def rate_sweep_evaluation(
         'dataset': dataset.name,
         'target_rates_bpf': target_rates_bpf,
         'emotion_mapping': emotion_mapping,
+        'ev2_emotion_labels': classifier.ev2_emotions,  # emotion2vec的9个类别标签（用于混淆矩阵）
         'samples': {},
         'rate_points': {}
     }
@@ -90,11 +92,13 @@ def rate_sweep_evaluation(
         # 初始化这个码率点的结果
         rate_results = {
             'target_rate_bpf': target_rate_bpf,
-            'achieved_rates': [],
-            'lambda_values': [],
-            'predictions': [],
-            'ground_truths': [],
-            'confidences': [],
+            # ===== 聚合统计 =====
+            'accuracy': None,  # 稍后计算
+            'avg_confidence': None,  # 稍后计算
+            'avg_rate_bpf': None,  # 稍后计算
+            'num_samples': 0,
+            # ===== 每个样本的完整信息（列表形式，顺序对应）=====
+            'samples': []  # 每个样本的完整信息字典
         }
         
         # 记录第一个样本的λ，用于加速后续样本的搜索
@@ -172,30 +176,57 @@ def rate_sweep_evaluation(
                     esd_ground_truth=emotion_ev2
                 )
                 
-                # 记录结果
-                rate_results['achieved_rates'].append(actual_rate_bpf)
-                rate_results['lambda_values'].append(sample_lambda)  # 每个样本的λ
-                rate_results['predictions'].append(result['ev2_predicted'])
-                rate_results['ground_truths'].append(emotion_ev2)
-                rate_results['confidences'].append(result['ev2_confidence'])
+                # ===== 记录完整的样本信息 =====
+                sample_info = {
+                    # 样本标识
+                    'sample_id': idx,
+                    'audio_path': str(audio_path),
+                    'original_emotion': emotion_original,  # 数据集原生标签
+                    
+                    # 编码信息
+                    'lambda': float(sample_lambda),
+                    'achieved_rate_bpf': float(actual_rate_bpf),
+                    'bits_total': float(bits),
+                    'num_frames': int(num_frames),
+                    'skip_rate': float(stats.get('skip_rate', 0.0)),
+                    
+                    # 分类信息
+                    'ground_truth': emotion_ev2,  # emotion2vec映射后的标签
+                    'prediction': result['ev2_predicted'],
+                    'confidence': float(result['ev2_confidence']),
+                    'is_correct': (result['ev2_predicted'] == emotion_ev2),
+                    
+                    # 完整的分类概率（所有9类）
+                    'all_class_probs': result.get('ev2_probs', []).tolist() if hasattr(result.get('ev2_probs', []), 'tolist') else list(result.get('ev2_probs', [])),
+                    'class_labels': result.get('ev2_all_labels', classifier.ev2_emotions),
+                    
+                    # 映射信息（如果需要）
+                    'esd_mapped': result.get('esd_mapped'),
+                    'is_consistent_with_esd': result.get('is_consistent', False)
+                }
+                
+                rate_results['samples'].append(sample_info)
                 
             except Exception as e:
                 logger.error(f"处理样本失败: {audio_path}, 错误: {e}")
                 continue
         
         # 计算这个码率点的统计指标
-        if len(rate_results['predictions']) > 0:
-            predictions = np.array(rate_results['predictions'])
-            ground_truths = np.array(rate_results['ground_truths'])
-            confidences = np.array(rate_results['confidences'])
+        if len(rate_results['samples']) > 0:
+            # 从samples提取数据计算统计
+            predictions = [s['prediction'] for s in rate_results['samples']]
+            ground_truths = [s['ground_truth'] for s in rate_results['samples']]
+            confidences = [s['confidence'] for s in rate_results['samples']]
+            achieved_rates = [s['achieved_rate_bpf'] for s in rate_results['samples']]
             
-            accuracy = (predictions == ground_truths).mean()
-            avg_confidence = confidences.mean()
-            avg_rate_bpf = np.mean(rate_results['achieved_rates'])
+            accuracy = sum(1 for s in rate_results['samples'] if s['is_correct']) / len(rate_results['samples'])
+            avg_confidence = np.mean(confidences)
+            avg_rate_bpf = np.mean(achieved_rates)
             
             rate_results['accuracy'] = float(accuracy)
             rate_results['avg_confidence'] = float(avg_confidence)
             rate_results['avg_rate_bpf'] = float(avg_rate_bpf)
+            rate_results['num_samples'] = len(rate_results['samples'])
             
             logger.info(f"  准确率: {accuracy:.4f}")
             logger.info(f"  平均置信度: {avg_confidence:.4f}")

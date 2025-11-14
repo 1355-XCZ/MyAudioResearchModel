@@ -136,6 +136,10 @@ class EmotionDataset(ABC):
                 # 随机采样
                 sampled.extend(random.sample(group, samples_per_emotion))
         
+        # 打乱样本顺序，避免按情感分组排列
+        # 这样可以防止某些情感集中在特定区间，导致评估时出现系统性偏差
+        random.shuffle(sampled)
+        
         return sampled
     
     def map_emotion_to_ev2(self, emotion: str) -> str:

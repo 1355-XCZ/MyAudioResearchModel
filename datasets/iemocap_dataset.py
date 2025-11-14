@@ -58,15 +58,22 @@ class IEMOCAPDataset(EmotionDataset):
         """
         return {
             'ang': 'angry',
+            'angry': 'angry',      # 已映射的标签
             'hap': 'happy',
+            'happy': 'happy',      # 已映射的标签
             'sad': 'sad',
             'neu': 'neutral',
+            'neutral': 'neutral',  # 已映射的标签
             'fru': 'angry',       # TODO: 用户确认映射策略
             'exc': 'happy',       # TODO: 用户确认映射策略
             'sur': 'surprised',
+            'surprised': 'surprised',  # 已映射的标签
             'fea': 'fearful',
+            'fearful': 'fearful',  # 已映射的标签
             'dis': 'disgusted',
+            'disgusted': 'disgusted',  # 已映射的标签
             'oth': 'other',
+            'other': 'other',      # 已映射的标签
         }
     
     def get_emotion_filter(self) -> Optional[List[str]]:

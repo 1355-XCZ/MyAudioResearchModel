@@ -74,6 +74,7 @@ class RAVDESSDataset(EmotionDataset):
             'angry': 'angry',
             'fearful': 'fearful',
             'disgust': 'disgusted',
+            'disgusted': 'disgusted',  # 已映射的标签
             'surprised': 'surprised',
         }
     

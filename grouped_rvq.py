@@ -146,17 +146,47 @@ class GroupedResidualVQ(nn.Module):
                     # 获取帧内历史（当前位置之前的所有token）
                     indices_history = all_indices_buffer[:, :, :current_pos]  # (B, T, L')
                     
-                    # 使用真实熵模型做ECVQ判决
-                    indices_with_skip, quantized_with_skip = self._ecvq_decision_with_entropy(
-                        residual=residual,
-                        quantized=quantized,
-                        indices=indices,
-                        entropy_model=entropy_model,
-                        indices_history=indices_history,
-                        labels=labels,
-                        lambda_rate=lambda_rate,
-                        valid_bt=valid_bt
-                    )
+                    if self.config.use_full_ranking_ecvq:
+                        # 使用全量/Top-N ECVQ重排序（真·ECVQ）
+                        BT = B * T
+                        L_prime = indices_history.shape[-1]
+                        
+                        # 预测下一token概率
+                        history_flat = indices_history.reshape(BT, L_prime)
+                        labels_expanded = labels.unsqueeze(1).repeat(1, T).reshape(BT) if labels is not None else None
+                        probs = entropy_model.predict_next_token_prob(history_flat, labels_expanded)
+                        probs = probs.view(B, T, -1)  # (B, T, K+1)
+                        
+                        # 获取码本矩阵
+                        E = self._get_codebook_weight(vq).to(residual.device, residual.dtype)
+                        
+                        # Top-N配置（可选）
+                        topn = getattr(self.config, 'ecvq_topk', None)
+                        
+                        # 全量重排序
+                        indices_with_skip, quantized_with_skip = self._ecvq_rerank(
+                            residual=residual,
+                            probs=probs,
+                            E=E,
+                            lambda_rate=lambda_rate,
+                            valid_bt=valid_bt,
+                            topk=topn
+                        )
+                    else:
+                        # 使用原始Top-1+SKIP方法（向后兼容）
+                        vq_codebook = self._get_codebook_weight(vq)
+                        indices_with_skip, quantized_with_skip = self._ecvq_decision_with_entropy(
+                            residual=residual,
+                            quantized=quantized,
+                            indices=indices,
+                            entropy_model=entropy_model,
+                            indices_history=indices_history,
+                            labels=labels,
+                            lambda_rate=lambda_rate,
+                            valid_bt=valid_bt,
+                            codebook=vq_codebook,
+                            use_full_ranking=False
+                        )
                     
                     skip_mask = (indices_with_skip == self.skip_token_id) & valid_bt
                     total_skips += skip_mask.sum().item()
@@ -350,7 +380,147 @@ class GroupedResidualVQ(nn.Module):
         
         return quantized, indices, commit
     
-    @torch.inference_mode()  # ChatGPT建议：推理模式
+    def _get_codebook_weight(self, vq: nn.Module) -> torch.Tensor:
+        """
+        返回该VQ层的码本矩阵 E: (K, Dg)
+        兼容不同vector_quantize_pytorch版本的字段命名
+        """
+        # 尝试常见的码本字段名
+        candidates = []
+        
+        # 1. 直接字段
+        for name in ['codebook', 'embedding', 'embeddings', 'embed']:
+            if hasattr(vq, name):
+                obj = getattr(vq, name)
+                if hasattr(obj, 'weight'):
+                    candidates.append(obj.weight)
+                elif torch.is_tensor(obj):
+                    candidates.append(obj)
+        
+        # 2. _codebook 子对象（当前版本）
+        if hasattr(vq, '_codebook'):
+            cb = getattr(vq, '_codebook')
+            for name in ['embed', 'weight', 'embedding']:
+                if hasattr(cb, name):
+                    w = getattr(cb, name)
+                    if torch.is_tensor(w):
+                        candidates.append(w)
+        
+        # 3. EMA版本可能在ema_codebook下
+        if hasattr(vq, 'ema_codebook'):
+            ema = getattr(vq, 'ema_codebook')
+            for name in ['embedding', 'embed', 'weight']:
+                if hasattr(ema, name):
+                    w = getattr(ema, name)
+                    if hasattr(w, 'weight'):
+                        candidates.append(w.weight)
+                    elif torch.is_tensor(w):
+                        candidates.append(w)
+        
+        # 返回第一个找到的tensor
+        for w in candidates:
+            if torch.is_tensor(w):
+                # 处理多码本情况：(num_codebooks, K, D) → 取第一个码本 → (K, D)
+                if w.ndim == 3 and w.size(0) == 1:
+                    return w[0]  # (K, D)
+                elif w.ndim == 2:
+                    return w  # (K, D)
+        
+        raise RuntimeError(f"无法定位VQ码本权重，尝试的字段: {list(vars(vq).keys())}")
+    
+    @torch.inference_mode()
+    def _ecvq_rerank(
+        self,
+        residual: torch.Tensor,          # (B, T, Dg)
+        probs: torch.Tensor,             # (B, T, K+1) 来自q(k|history)，最后一列是SKIP
+        E: torch.Tensor,                 # (K, Dg) 码本矩阵
+        lambda_rate: torch.Tensor,       # 标量
+        valid_bt: torch.Tensor,          # (B, T) 有效帧mask
+        topk: Optional[int] = None       # 若给定，则先取欧氏距离Top-N
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        全量/Top-N ECVQ重排序：在所有码字+SKIP中选择率失真最优
+        
+        真正的ECVQ判决：J(k) = ΔD(k) + λ·(-log₂ q(k|ctx))
+        """
+        B, T, Dg = residual.shape
+        K = E.size(0)
+        
+        # 计算所有码字的ΔD(k) = ||e_k||² - 2·r·e_k（忽略||r||²，不影响argmin）
+        r = residual.reshape(B * T, Dg)                      # (BT, Dg)
+        E_norm2 = (E ** 2).sum(dim=-1)                       # (K,)
+        
+        # 距离矩阵（向量化计算）
+        D_full = E_norm2.unsqueeze(0) - 2.0 * (r @ E.t())   # (BT, K)
+        D_full = D_full.view(B, T, K)                        # (B, T, K)
+        
+        if topk is not None and topk < K:
+            # Top-N折中：先按欧氏距离挑Top-N，再做率失真重排
+            _, idx_topk = torch.topk(-D_full, k=topk, dim=-1)  # 负号：距离小优先
+            
+            # 从probs中取对应候选
+            p_codes = probs[..., :K].gather(-1, idx_topk).clamp_min(1e-12)  # (B, T, N)
+            bits_codes = -torch.log2(p_codes)
+            
+            # 候选的ΔD
+            D_codes = D_full.gather(-1, idx_topk)
+            
+            # 组合J(k) = D(k) + λ·bits(k)
+            J_codes = D_codes + lambda_rate * bits_codes                     # (B, T, N)
+            
+            # SKIP的代价
+            bits_skip = -torch.log2(probs[..., K].clamp_min(1e-12))          # (B, T)
+            J_skip = bits_skip * lambda_rate                                  # (B, T)
+            
+            # 合并SKIP
+            J_all = torch.cat([J_codes, J_skip.unsqueeze(-1)], dim=-1)       # (B, T, N+1)
+            k_star_local = J_all.argmin(dim=-1)                              # (B, T)
+            
+            # 将局部Top-N索引还原到全局0..K映射
+            chosen_is_skip = (k_star_local == topk)
+            idx_global = torch.zeros_like(k_star_local)
+            
+            # 使用高级索引批量还原
+            mask_send = ~chosen_is_skip
+            if mask_send.any():
+                b_idx, t_idx = torch.where(mask_send)
+                idx_global[b_idx, t_idx] = idx_topk[b_idx, t_idx, k_star_local[b_idx, t_idx]]
+            idx_global[chosen_is_skip] = K  # 用K表示SKIP
+            
+        else:
+            # 全量重排序
+            bits_codes = -torch.log2(probs[..., :K].clamp_min(1e-12))        # (B, T, K)
+            J_codes = D_full + lambda_rate * bits_codes                       # (B, T, K)
+            
+            # SKIP的代价（失真=0）
+            bits_skip = -torch.log2(probs[..., K].clamp_min(1e-12))           # (B, T)
+            J_skip = bits_skip * lambda_rate                                   # (B, T)
+            
+            # 拼接并选择最优
+            J_all = torch.cat([J_codes, J_skip.unsqueeze(-1)], dim=-1)        # (B, T, K+1)
+            idx_global = J_all.argmin(dim=-1)                                  # (B, T); 0..K，K=SKIP
+        
+        # 写回索引与量化向量
+        chosen_is_skip = (idx_global == K)
+        
+        indices_final = idx_global.clone()                                     # (B, T)
+        indices_final[chosen_is_skip] = self.skip_token_id                     # 标记为SKIP
+        
+        quantized_final = torch.zeros_like(residual)                           # (B, T, Dg)
+        
+        # 向量化构造量化向量
+        if (~chosen_is_skip).any():
+            mask_send = ~chosen_is_skip
+            quantized_final[mask_send] = E[idx_global[mask_send]]
+        
+        # 屏蔽无效帧
+        if not valid_bt.all():
+            quantized_final[~valid_bt] = 0.0
+            indices_final[~valid_bt] = self.skip_token_id
+        
+        return indices_final, quantized_final
+    
+    @torch.inference_mode()
     def _ecvq_decision_with_entropy(
         self,
         residual: torch.Tensor,
@@ -360,10 +530,16 @@ class GroupedResidualVQ(nn.Module):
         indices_history: torch.Tensor,
         labels: Optional[torch.Tensor],
         lambda_rate: torch.Tensor,
-        valid_bt: torch.Tensor
+        valid_bt: torch.Tensor,
+        codebook: torch.Tensor,  # 新增：码本 (K, Dg)
+        use_full_ranking: bool = True  # 新增：是否使用全量重排序
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         ECVQ 判决（使用真实熵模型）
+        
+        支持两种模式：
+        1. use_full_ranking=True: 全量重排序（真·ECVQ）
+        2. use_full_ranking=False: Top-1+SKIP近似（原始方法）
         
         Args:
             residual: (B, T, Dg) 当前残差
@@ -374,21 +550,15 @@ class GroupedResidualVQ(nn.Module):
             labels: (B,) 情感标签（条件模型需要）
             lambda_rate: 拉格朗日乘子 λ
             valid_bt: (B, T) bool mask
+            codebook: (K, Dg) 当前层的码本
+            use_full_ranking: 是否使用全量重排序
         
         Returns:
             final_indices: (B, T) 最终决策（包含SKIP）
             final_quantized: (B, T, Dg) 最终量化向量
         """
         B, T, Dg = residual.shape
-        
-        # 计算失真
-        distortion_send = ((residual - quantized) ** 2).sum(dim=-1)  # (B, T)
-        distortion_skip = (residual ** 2).sum(dim=-1)  # (B, T)
-        delta_distortion = distortion_skip - distortion_send  # (B, T) 跳过节省的失真
-        
-        # 尺度归一化：按残差能量归一化ΔD，保证跨组比特分配公平性
-        energy = residual.pow(2).mean(dim=-1).clamp_min(1e-6)  # (B, T)
-        delta_distortion = delta_distortion / energy
+        K = codebook.shape[0]  # 码本大小
         
         # 使用熵模型预测下一个token的概率分布
         BT = B * T
@@ -406,6 +576,59 @@ class GroupedResidualVQ(nn.Module):
         # 使用熵模型预测（L'==0 时即BOS-only先验，模型自己学习的分布）
         probs = entropy_model.predict_next_token_prob(history_flat, labels_expanded)
         probs = probs.view(B, T, -1)  # (B, T, V)
+        
+        if use_full_ranking:
+            # ===== 全量重排序（真·ECVQ）=====
+            # 1) 计算所有码字的失真
+            r_flat = residual.view(BT, Dg)  # (BT, Dg)
+            
+            # ||e_k||^2: (K,)
+            codebook_norm2 = (codebook ** 2).sum(dim=-1)  # (K,)
+            
+            # ||r - e_k||^2 = ||r||^2 + ||e_k||^2 - 2*r·e_k
+            r_norm2 = (r_flat ** 2).sum(dim=-1, keepdim=True)  # (BT, 1)
+            inner_prod = r_flat @ codebook.T  # (BT, K)
+            D_all = r_norm2 + codebook_norm2.unsqueeze(0) - 2 * inner_prod  # (BT, K)
+            D_all = D_all.view(B, T, K)  # (B, T, K)
+            
+            # SKIP的失真（不发送任何码字）
+            D_skip = (residual ** 2).sum(dim=-1)  # (B, T)
+            
+            # 2) 计算所有候选的bits
+            bits_codes = -torch.log2(probs[:, :, :K].clamp_min(1e-12))  # (B, T, K)
+            bits_skip = -torch.log2(probs[:, :, self.skip_token_id].clamp_min(1e-12))  # (B, T)
+            
+            # 3) 计算率失真代价 J(k) = D(k) + λ·bits(k)
+            J_codes = D_all + lambda_rate.unsqueeze(-1) * bits_codes  # (B, T, K)
+            J_skip = D_skip + lambda_rate * bits_skip  # (B, T)
+            
+            # 4) 拼接SKIP并选择最优
+            J_all = torch.cat([J_codes, J_skip.unsqueeze(-1)], dim=-1)  # (B, T, K+1)
+            k_star = J_all.argmin(dim=-1)  # (B, T)
+            
+            # 5) 应用决策
+            chosen_is_skip = (k_star == K)
+            
+            final_indices = k_star.clone()
+            final_indices[chosen_is_skip] = self.skip_token_id
+            
+            # 构造量化向量
+            final_quantized = torch.zeros_like(residual)
+            for b in range(B):
+                for t in range(T):
+                    if not chosen_is_skip[b, t]:
+                        final_quantized[b, t] = codebook[k_star[b, t]]
+            
+        else:
+            # ===== Top-1+SKIP近似（原始方法）=====
+            # 计算失真
+            distortion_send = ((residual - quantized) ** 2).sum(dim=-1)  # (B, T)
+            distortion_skip = (residual ** 2).sum(dim=-1)  # (B, T)
+            delta_distortion = distortion_skip - distortion_send  # (B, T)
+            
+            # 尺度归一化
+            energy = residual.pow(2).mean(dim=-1).clamp_min(1e-6)  # (B, T)
+            delta_distortion = delta_distortion / energy
         
         # 计算 bits_send（发送码字k）
         indices_clamped = indices.clamp(0, probs.shape[-1] - 1)

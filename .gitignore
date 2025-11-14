@@ -40,6 +40,7 @@ env/
 # Exceptions: keep best models
 !checkpoints/grouped_rvq_best.pt
 !checkpoints/entropy_model_best.pt
+!checkpoints/traditional_rvq_16L.pt
 
 # Training outputs
 checkpoints/logs/
@@ -81,9 +82,12 @@ Thumbs.db
 *.bak
 tmp/
 temp/
+logs/*
 
 # Archive (historical files, not for release)
 archive/
+backup/
+old_code/
 
 # Documentation builds
 docs/_build/

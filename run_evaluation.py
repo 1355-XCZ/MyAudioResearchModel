@@ -25,7 +25,8 @@ if str(eval_module_path) not in sys.path:
 
 from emotion_classifier import EmotionClassifierV2
 from method_rate_sweep import rate_sweep_evaluation
-from analyzer import ResultAnalyzer
+# analyzer 延迟导入（避免matplotlib依赖问题）
+# from analyzer import ResultAnalyzer
 
 dataset_module_path = Path(__file__).parent / 'datasets'
 if str(dataset_module_path) not in sys.path:
@@ -120,8 +121,9 @@ def main():
     logger.info("="*80)
     
     DatasetClass = DATASETS[args.dataset]
-    # 数据集路径：data_root/DATASET_NAME/
-    dataset_data_root = Path(config['data'].data_root) / args.dataset.upper()
+    # 数据集路径：项目根目录/data/DATASET_NAME/
+    project_root = Path(__file__).parent
+    dataset_data_root = project_root / 'data' / args.dataset.upper()
     dataset = DatasetClass(
         data_root=str(dataset_data_root),
         samples_per_emotion=args.samples
@@ -152,8 +154,9 @@ def main():
         logger.info("分析结果")
         logger.info("="*80)
         
-        analyzer = ResultAnalyzer(output_dir=Path(args.output_dir))
-        analyzer.analyze_rate_sweep(results, dataset.name)
+        # analyzer = ResultAnalyzer(output_dir=Path(args.output_dir))
+        # analyzer.analyze_rate_sweep(results, dataset.name)  # 暂时注释，功能未实现
+        logger.info(f"✓ 评估结果已保存: {args.output_dir}/rate_sweep_{dataset.name}.json")
     
     logger.info("\n" + "="*80)
     logger.info("评估完成！")

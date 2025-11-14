@@ -15,11 +15,13 @@ class GroupedRVQConfig:
     group_dim: int = 64                 # 每组维度 (768/12=64)
     
     # 组内细层
-    num_fine_layers: int = 16           # 每组细量化层数
+    num_fine_layers: int = 3            # 每组细量化层数（兼容旧checkpoint）
     fine_codebook_size: int = 128       # 细层码本大小
     
     # SKIP机制
     enable_skip: bool = True            # 启用SKIP机制
+    use_full_ranking_ecvq: bool = True  # 启用全量ECVQ重排序（解决码率控制问题）
+    ecvq_topk: Optional[int] = None     # Top-N折中方案（8/16可得95%+收益，None=全量）
     
     # RVQ训练参数（EMA模式）
     decay: float = 0.99                 # EMA衰减率
@@ -82,11 +84,13 @@ class EntropyModelConfig:
         if not self.enable_optimizations:
             return {
                 'max_frames_per_sample': 0,
+                'frame_stride': 1,
                 'use_amp': False,
                 'use_tf32': False,
             }
         return {
             'max_frames_per_sample': self.max_frames_per_sample,
+            'frame_stride': 1,  # 帧下采样步长（1=不下采样）
             'use_amp': self.use_amp,
             'use_tf32': self.use_tf32,
         }
@@ -131,14 +135,13 @@ class RateControlConfig:
         8000   # 160 bpf
     ])
 
-    # λ搜索范围
     lambda_min: float = 1e-4
-    lambda_max: float = 16.0
-    lambda_init: float = 0.5
+    lambda_max: float = 16.0  # 扩展到16.0以覆盖更低码率
+    lambda_init: float = 8.0  # 从中间值开始（二分查找的初始提示）
 
     # 二分搜索参数
     rate_tolerance_bpf: float = 1.0  # 容差：1 bpf（未收敛可接受）
-    max_binary_search_iters: int = 20
+    max_binary_search_iters: int = 50
     
     # 对偶更新参数
     dual_lr: float = 0.01
@@ -212,8 +215,8 @@ class DataConfig:
     # 数据根目录（从环境变量或配置文件读取）
     data_root: Optional[str] = None
     
-    # 训练数据（100h中英文）
-    train_data_dir: str = "training_data"
+    # 训练数据（50h中英文）
+    train_data_dir: str = "emilia_vevo_training_50h"
     
     # 特征文件命名模式
     feature_suffix: str = "_ev2_frame.npy"
@@ -234,7 +237,7 @@ class DataConfig:
     def __post_init__(self):
         """从环境变量读取data_root（如果未设置）"""
         if self.data_root is None:
-            self.data_root = os.environ.get("DATA_ROOT", "./data")
+            self.data_root = os.environ.get("DATA_ROOT", "/data/gpfs/projects/punim2341/haoguangzhou/data")
     
     # 情感标签映射（训练数据无标签，用于评估时的占位）
     @property
@@ -252,7 +255,7 @@ class TrainingConfig:
     """训练配置"""
     # 通用训练参数
     batch_size: int = 32  # 用于索引提取阶段
-    num_epochs: int = 100
+    num_epochs: int = 20  # RVQ训练epoch数
     learning_rate: float = 1e-4
     weight_decay: float = 0.01
     grad_clip: float = 1.0

@@ -8,8 +8,8 @@
 #SBATCH --mem=32G
 #SBATCH --time=72:00:00
 #SBATCH --job-name=train_rvq
-#SBATCH --output=./logs/train_rvq_%j.out
-#SBATCH --error=./logs/train_rvq_%j.err
+#SBATCH --output=/data/gpfs/projects/punim2341/haoguangzhou/logs/train_rvq_%j.out
+#SBATCH --error=/data/gpfs/projects/punim2341/haoguangzhou/logs/train_rvq_%j.err
 
 # 加载本地配置（用户需要根据 local_config.sh.example 创建）
 if [ -f ./local_config.sh ]; then
@@ -29,11 +29,12 @@ if [ -n "$VENV_PATH" ] && [ -f "$VENV_PATH/bin/activate" ]; then
     source "$VENV_PATH/bin/activate"
 fi
 
-# 进入项目目录（使用相对于脚本的路径）
-cd "$(dirname "$0")/.."
+# 进入项目目录
+PROJECT_DIR="/data/gpfs/projects/punim2341/haoguangzhou/voice/my-research/to_ready/MyAudioResearchModel"
+cd "$PROJECT_DIR"
 
-# 设置环境变量（项目现在是自包含的）
-export PROJECT_ROOT=$(pwd)
+# 设置环境变量
+export PROJECT_ROOT="$PROJECT_DIR"
 export PYTHONPATH=$PROJECT_ROOT:$PYTHONPATH
 
 # 运行RVQ训练
