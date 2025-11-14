@@ -108,11 +108,11 @@ def main():
     logger.info(f"✓ 熵模型已加载: {args.entropy_checkpoint}")
     
     classifier = EmotionClassifierV2(
-        model_name="emotion2vec_plus_large",
+        model_name="iic/emotion2vec_plus_base",  # 使用plus_base(768维)匹配提取的特征
         hub="modelscope",
         device=device
     )
-    logger.info(f"✓ 分类器已加载: emotion2vec+")
+    logger.info(f"✓ 分类器已加载: emotion2vec_plus_base (768维)")
     
     # 加载数据集
     logger.info("\n" + "="*80)
