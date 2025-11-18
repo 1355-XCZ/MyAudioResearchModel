@@ -89,6 +89,9 @@ def rate_sweep_evaluation(
         logger.info(f"\n{'='*60}")
         logger.info(f"目标码率: {target_rate_bpf} bpf ({target_rate_bpf * frame_rate_hz:.1f} bps)")
         
+        # ⭐ 重置rate_controller，确保每个码率点都从lambda_init开始
+        rate_controller.reset()
+        
         # 初始化这个码率点的结果
         rate_results = {
             'target_rate_bpf': target_rate_bpf,
@@ -100,9 +103,6 @@ def rate_sweep_evaluation(
             # ===== 每个样本的完整信息（列表形式，顺序对应）=====
             'samples': []  # 每个样本的完整信息字典
         }
-        
-        # 记录第一个样本的λ，用于加速后续样本的搜索
-        first_lambda = None
         
         # 对每个样本进行编码和分类
         for idx, sample in enumerate(tqdm(dataset.samples, desc=f"样本 @ {target_rate_bpf} bpf")):
@@ -128,7 +128,7 @@ def rate_sweep_evaluation(
                 
                 # 每个样本单独搜索λ（确保达到目标码率）
                 def encoder_fn(lambda_val):
-                    with torch.inference_mode(), torch.autocast('cuda', dtype=torch.bfloat16, enabled=torch.cuda.is_available()):
+                    with torch.inference_mode():
                         _, indices, _, _ = rvq_model(
                             features_tensor,
                             lambda_rate=torch.tensor(lambda_val, device=device),
@@ -140,24 +140,23 @@ def rate_sweep_evaluation(
                         actual_rate_bpf = bits / num_frames if num_frames > 0 else 0.0
                         return indices, actual_rate_bpf
                 
-                # 利用第一个样本的λ作为先验，加速收敛
+                # ⭐ 完全禁用 hint，每个样本独立全范围搜索
                 sample_lambda, sample_rate_bpf = rate_controller.binary_search(
                     encoder_fn,
                     target_rate_bpf,
                     tolerance_bpf=rate_config.rate_tolerance_bpf,
-                    lambda_hint=first_lambda  # 传入先验λ
+                    lambda_hint=None  # 强制全范围搜索
                 )
                 
-                # 记录第一个样本的λ
+                # 记录第一个样本的结果（仅用于日志）
                 if idx == 0:
-                    first_lambda = sample_lambda
                     logger.info(f"  第一个样本: λ={sample_lambda:.4f}, R={sample_rate_bpf:.2f} bpf")
                 
-                # 使用找到的λ进行量化（实际上binary_search已经编码过了，但为了一致性重新编码）
-                with torch.inference_mode(), torch.autocast('cuda', dtype=torch.bfloat16, enabled=torch.cuda.is_available()):
+                # 使用找到的λ进行量化
+                with torch.inference_mode():
                     quantized, indices, _, stats = rvq_model(
                         features_tensor,
-                        lambda_rate=torch.tensor(sample_lambda, device=device, dtype=features_tensor.dtype),
+                        lambda_rate=torch.tensor(sample_lambda, device=device),
                         entropy_model=entropy_model,
                         valid_mask=valid_mask
                     )

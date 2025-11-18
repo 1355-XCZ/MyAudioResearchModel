@@ -99,13 +99,13 @@ def extract_indices_from_rvq(rvq_model, dataloader, device, target_bpf=None, ecv
                 )
             else:
                 # 分位数门控方式（新方式）
-            _, indices, _, _ = rvq_model(
-                features,
-                lambda_rate=None,
-                entropy_model=None,
-                valid_mask=valid_bt,
-                target_bpf=target_bpf  # 使用目标bpf分位数门控
-            )
+                _, indices, _, _ = rvq_model(
+                    features,
+                    lambda_rate=None,
+                    entropy_model=None,
+                    valid_mask=valid_bt,
+                    target_bpf=target_bpf  # 使用目标bpf分位数门控
+                )
             
             # 逐样本存储（保留变长，用uint8节省内存）
             for i in range(B):

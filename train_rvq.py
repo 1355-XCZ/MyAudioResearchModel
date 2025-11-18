@@ -504,8 +504,8 @@ def train_model(rvq_config, data_config, training_config):
                         break  # 提前退出训练循环
             else:
                 # 不使用早停，保持原逻辑（基于val_loss）
-            if val_recon < best_val_loss:
-                best_val_loss = val_recon
+                if val_recon < best_val_loss:
+                    best_val_loss = val_recon
                     best_val_cosine = val_cosine
                     best_epoch = epoch
                     
@@ -518,7 +518,7 @@ def train_model(rvq_config, data_config, training_config):
                     'rvq_config': {k: v for k, v in rvq_config.__dict__.items() if not k.startswith('_')},
                 }
                 save_path = Path(training_config.checkpoint_dir) / "grouped_rvq_best.pt"
-                    save_path.parent.mkdir(parents=True, exist_ok=True)
+                save_path.parent.mkdir(parents=True, exist_ok=True)
                 torch.save(checkpoint, save_path)
                 logger.info(f"✅ 保存最佳模型: {save_path}")
         

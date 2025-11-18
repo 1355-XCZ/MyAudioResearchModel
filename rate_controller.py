@@ -120,20 +120,26 @@ class RateController:
         
         # 如果有先验λ（从第一个样本），优先测试它
         if lambda_hint is not None:
+            logger.debug(f"  [二分搜索] 收到 lambda_hint={lambda_hint:.4f}")
             _, hint_rate = cached_encoder_fn(lambda_hint)
+            logger.debug(f"  [二分搜索] hint_rate={hint_rate:.2f} bpf, 目标={target_rate_bpf:.2f} bpf")
             if abs(hint_rate - target_rate_bpf) < tolerance_bpf:
                 # 先验λ已满足，直接返回
-                logger.debug(f"  使用先验λ={lambda_hint:.4f}, R={hint_rate:.2f} bpf (目标={target_rate_bpf:.2f})")
+                logger.debug(f"  [二分搜索] 先验λ已满足条件，直接返回")
                 self.lambda_current = lambda_hint
                 return lambda_hint, hint_rate
             # 否则以hint为中心缩小搜索范围
             lambda_low = max(self.lambda_min, lambda_hint * 0.5)
             lambda_high = min(self.lambda_max, lambda_hint * 2.0)
+            logger.info(f"  [二分搜索] 使用 hint 缩小范围: [{lambda_low:.4f}, {lambda_high:.4f}] (原范围: [{self.lambda_min:.4f}, {self.lambda_max:.4f}])")
         else:
             lambda_low = self.lambda_min
             lambda_high = self.lambda_max
+            logger.debug(f"  [二分搜索] 无 hint，使用全范围: [{lambda_low:.4f}, {lambda_high:.4f}]")
         
-        best_lambda = lambda_hint if lambda_hint else self.lambda_current
+        # ⭐ 初始化 best_lambda 为中点（而非 lambda_current）
+        # 避免样本间状态污染
+        best_lambda = (lambda_low + lambda_high) / 2
         best_rate = None
         
         for iter_idx in range(max_iters):

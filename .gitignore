@@ -27,6 +27,10 @@ wheels/
 venv/
 ENV/
 env/
+reproduce_venv/
+test_venv/
+test_venv_*/
+venv_test_*/
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -40,20 +44,43 @@ env/
 # Exceptions: keep best models
 !checkpoints/grouped_rvq_best.pt
 !checkpoints/entropy_model_best.pt
-!checkpoints/traditional_rvq_16L.pt
+# traditional_rvq_16L.pt is too large (109MB > 100MB GitHub limit)
 
 # Training outputs
 checkpoints/logs/
 checkpoints/results/
 indices_cache/
+logs/
 *.log
 
 # Evaluation results (optional: keep or ignore)
 evaluation_results/
 evaluation_quick_v2_results/
+evaluation_results_quick/
+evaluation_results_4points/
+evaluation_results_test/
+
+# Archive and temporary directories (historical files, not for release)
+archive/
+backup/
+old_code/
+checkpoints_backup_normalized/
+temp_scripts/
+temp_files/
+temp_plots/
+
+# data_subset目录：评估子集（提供给评审员，需要提交到Git）
+# 已包含随机抽取的1600个样本（seed=42）
+# 必须在忽略规则之前声明例外
+!data_subset/
 
 # Data files (too large for git)
-*.npy
+# 不使用 *.npy 以便data_subset可以被跟踪
+# 改为忽略特定目录
+data/
+!data_subset/
+checkpoints/*.npy
+checkpoints/**/*.npy
 *.npz
 *.wav
 *.flac
@@ -61,38 +88,3 @@ evaluation_quick_v2_results/
 
 # Exceptions: keep normalization parameters
 !ev2_mean_std_100h_EN_ZH.npz
-
-# Slurm outputs
-slurm-*.out
-*.slurm.out
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Temporary files
-*.tmp
-*.bak
-tmp/
-temp/
-logs/*
-
-# Archive (historical files, not for release)
-archive/
-backup/
-old_code/
-
-# Documentation builds
-docs/_build/
-docs/.doctrees/
-
-# data目录：追踪文件夹但不追踪内容
-data/*
-!data/.gitkeep

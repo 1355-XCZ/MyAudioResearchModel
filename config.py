@@ -136,8 +136,8 @@ class RateControlConfig:
     ])
 
     lambda_min: float = 1e-4
-    lambda_max: float = 16.0  # 扩展到16.0以覆盖更低码率
-    lambda_init: float = 8.0  # 从中间值开始（二分查找的初始提示）
+    lambda_max: float = 32.0  # 扩展到16.0以覆盖更低码率
+    lambda_init: float = 16.0  # 从中间值开始（二分查找的初始提示）
 
     # 二分搜索参数
     rate_tolerance_bpf: float = 1.0  # 容差：1 bpf（未收敛可接受）
@@ -230,8 +230,8 @@ class DataConfig:
     max_samples: Optional[int] = None   # 最大样本数（用于快速测试）
     max_frames: int = 256               # 最大帧数（索引提取阶段使用，防止OOM）
     min_frames: int = 10                # 最小帧数
-    normalize_features: bool = True     # 是否归一化特征
-    mean_std_path: Optional[str] = "ev2_mean_std_100h_EN_ZH.npz"  # 归一化参数路径（待计算）
+    normalize_features: bool = False    # ⚠️ 关闭归一化（避免训练-测试不一致问题）
+    mean_std_path: Optional[str] = "ev2_mean_std_100h_EN_ZH.npz"  # 归一化参数路径（已禁用）
     supported_languages: Optional[List[str]] = field(default_factory=lambda: ['EN', 'ZH'])  # 使用100h中英文数据
     
     def __post_init__(self):

@@ -89,6 +89,19 @@ def main():
         logger.info(f"GPU: {torch.cuda.get_device_name(0)}")
         logger.info(f"显存: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.2f} GB")
     
+    # 打印完整配置信息
+    logger.info("\n" + "="*80)
+    logger.info("配置信息")
+    logger.info("="*80)
+    logger.info(f"Lambda范围: [{config['rate_control'].lambda_min}, {config['rate_control'].lambda_max}]")
+    logger.info(f"Lambda初始值: {config['rate_control'].lambda_init}")
+    logger.info(f"二分搜索最大迭代次数: {config['rate_control'].max_binary_search_iters}")
+    logger.info(f"码率容差: {config['rate_control'].rate_tolerance_bpf} bpf")
+    logger.info(f"目标码率: {config['evaluation'].rate_sweep_rates_bpf}")
+    logger.info(f"RVQ配置: {config['grouped_rvq'].num_groups}组 × {config['grouped_rvq'].num_fine_layers}层")
+    logger.info(f"使用Full Ranking ECVQ: {config['grouped_rvq'].use_full_ranking_ecvq}")
+    logger.info("="*80)
+    
     # 加载模型
     logger.info("\n" + "="*80)
     logger.info("加载模型")
