@@ -1,48 +1,48 @@
 #!/usr/bin/env python3
 """
-测试所有依赖是否正确安装
+Test if all dependencies are correctly installed
 
-用于验证环境配置是否完整
+Used to verify if environment configuration is complete
 """
 
 import sys
 import importlib
 
-# 定义所有需要的依赖包
+# Define all required dependency packages
 REQUIRED_PACKAGES = {
-    # 核心深度学习
-    'torch': 'PyTorch (深度学习框架)',
-    'numpy': 'NumPy (数值计算)',
+    # Core deep learning
+    'torch': 'PyTorch (deep learning framework)',
+    'numpy': 'NumPy (numerical computation)',
     
-    # 音频和模型
+    # Audio and model
     'funasr': 'FunASR (Emotion2Vec)',
-    'modelscope': 'ModelScope (模型下载)',
-    'torchaudio': 'TorchAudio (音频处理)',
+    'modelscope': 'ModelScope (model download)',
+    'torchaudio': 'TorchAudio (audio processing)',
     
-    # 机器学习
-    'sklearn': 'scikit-learn (评估指标)',
-    'scipy': 'SciPy (统计分析)',
+    # Machine learning
+    'sklearn': 'scikit-learn (evaluation metrics)',
+    'scipy': 'SciPy (statistical analysis)',
     
     # RVQ
-    'vector_quantize_pytorch': 'vector-quantize-pytorch (VQ实现)',
+    'vector_quantize_pytorch': 'vector-quantize-pytorch (VQ implementation)',
     
-    # 数据处理
-    'tqdm': 'tqdm (进度条)',
-    'yaml': 'PyYAML (配置文件)',
+    # Data processing
+    'tqdm': 'tqdm (progress bar)',
+    'yaml': 'PyYAML (configuration file)',
     
-    # 可视化
-    'matplotlib': 'Matplotlib (绘图)',
-    'seaborn': 'Seaborn (统计图)',
-    'pandas': 'Pandas (数据处理)',
+    # Visualization
+    'matplotlib': 'Matplotlib (plotting)',
+    'seaborn': 'Seaborn (statistical plots)',
+    'pandas': 'Pandas (data processing)',
     
-    # Transformer相关
-    'einops': 'einops (张量操作)',
-    'transformers': 'Transformers (预训练模型)',
+    # Transformer related
+    'einops': 'einops (tensor operations)',
+    'transformers': 'Transformers (pretrained models)',
 }
 
 
 def check_package(package_name, description):
-    """检查单个包是否可导入"""
+    """Check if a single package can be imported"""
     try:
         module = importlib.import_module(package_name)
         version = getattr(module, '__version__', 'unknown')
@@ -50,33 +50,33 @@ def check_package(package_name, description):
         return True
     except ImportError as e:
         print(f"❌ {description:40s} NOT FOUND")
-        print(f"   错误: {e}")
+        print(f"   Error: {e}")
         return False
 
 
 def check_cuda():
-    """检查CUDA是否可用"""
+    """Check if CUDA is available"""
     try:
         import torch
         if torch.cuda.is_available():
             device_name = torch.cuda.get_device_name(0)
             cuda_version = torch.version.cuda
-            print(f"✅ CUDA可用: {device_name} (CUDA {cuda_version})")
+            print(f"✅ CUDA available: {device_name} (CUDA {cuda_version})")
             return True
         else:
-            print(f"⚠️  CUDA不可用 (将使用CPU)")
+            print(f"⚠️  CUDA not available (using CPU)")
             return False
     except Exception as e:
-        print(f"❌ CUDA检查失败: {e}")
+        print(f"❌ CUDA check failed: {e}")
         return False
 
 
 def check_project_structure():
-    """检查项目结构"""
+    """Check project structure"""
     from pathlib import Path
     
     print("\n" + "="*80)
-    print("检查项目结构")
+    print("Checking project structure")
     print("="*80)
     
     required_files = [
@@ -120,26 +120,26 @@ def check_project_structure():
 
 def main():
     print("="*80)
-    print("依赖检查工具")
+    print("Dependency Check Tool")
     print("="*80)
     print()
     
-    # 检查Python版本
+    # Check Python version
     python_version = sys.version.split()[0]
-    print(f"Python版本: {python_version}")
+    print(f"Python version: {python_version}")
     
     if sys.version_info < (3, 8):
-        print("❌ Python版本过低，需要 >= 3.8")
+        print("❌ Python version too low, need >= 3.8")
         sys.exit(1)
     else:
-        print("✅ Python版本符合要求")
+        print("✅ Python version meets requirements")
     
     print()
     print("="*80)
-    print("检查依赖包")
+    print("Checking dependency packages")
     print("="*80)
     
-    # 检查所有包
+    # Check all packages
     failed_packages = []
     for package, description in REQUIRED_PACKAGES.items():
         if not check_package(package, description):
@@ -147,43 +147,43 @@ def main():
     
     print()
     print("="*80)
-    print("检查GPU支持")
+    print("Checking GPU support")
     print("="*80)
     check_cuda()
     
     print()
     structure_ok = check_project_structure()
     
-    # 总结
+    # Summary
     print()
     print("="*80)
-    print("检查总结")
+    print("Check Summary")
     print("="*80)
     
     if failed_packages:
-        print(f"❌ {len(failed_packages)}个包缺失:")
+        print(f"❌ {len(failed_packages)} packages missing:")
         for pkg in failed_packages:
             print(f"   - {pkg}")
         print()
-        print("请运行以下命令安装缺失的包:")
+        print("Please run the following command to install missing packages:")
         print("   pip install -r requirements.txt")
         sys.exit(1)
     else:
-        print("✅ 所有依赖包已安装")
+        print("✅ All dependency packages installed")
     
     if not structure_ok:
-        print("⚠️  项目结构不完整，请检查缺失的文件")
+        print("⚠️  Project structure incomplete, please check missing files")
         sys.exit(1)
     else:
-        print("✅ 项目结构完整")
+        print("✅ Project structure complete")
     
     print()
-    print("🎉 环境配置完成，可以运行实验！")
+    print("🎉 Environment configuration complete, ready to run experiments!")
     print()
-    print("下一步:")
-    print("  1. 准备数据: python3 prepare_evaluation_subset.py")
-    print("  2. 运行实验: python3 reproduce_experiments.py --mode all")
-    print("  或一键运行: bash run_reproduce.sh")
+    print("Next steps:")
+    print("  1. Prepare data: python3 prepare_evaluation_subset.py")
+    print("  2. Run experiment: python3 reproduce_experiments.py --mode all")
+    print("  or one-click run: bash run_reproduce.sh")
 
 
 if __name__ == '__main__':

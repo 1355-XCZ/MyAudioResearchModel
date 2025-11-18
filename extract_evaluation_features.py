@@ -1,4 +1,4 @@
-"""提取评估数据集emotion2vec特征（完全参照emilia_vevo_integration）"""
+"""Extract emotion2vec features for evaluation dataset (fully following emilia_vevo_integration)"""
 
 import torch
 import torchaudio
@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def extract_features(audio_path, model, target_sr=16000):
-    """提取单个音频的特征"""
+    """Extract features from single audio"""
     try:
         waveform, sr = torchaudio.load(audio_path)
         if waveform.shape[0] > 1:
@@ -22,7 +22,7 @@ def extract_features(audio_path, model, target_sr=16000):
             resampler = torchaudio.transforms.Resample(sr, target_sr)
             waveform = resampler(waveform)
         
-        # funasr需要文件路径
+        # funasr requires filepath
         with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
             temp_path = tmp.name
             torchaudio.save(temp_path, waveform, target_sr)
@@ -34,7 +34,7 @@ def extract_features(audio_path, model, target_sr=16000):
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
     except Exception as e:
-        logger.error(f"失败 {audio_path}: {e}")
+        logger.error(f"Failed {audio_path}: {e}")
         return None
 
 def process_ravdess(ravdess_dir, output_dir, model):
@@ -43,7 +43,7 @@ def process_ravdess(ravdess_dir, output_dir, model):
     output_dir.mkdir(parents=True, exist_ok=True)
     
     wav_files = list(ravdess_dir.glob("*.wav"))
-    logger.info(f"RAVDESS: {len(wav_files)}个文件")
+    logger.info(f"RAVDESS: {len(wav_files)} files")
     
     for wav in tqdm(wav_files, desc="RAVDESS"):
         feat_file = output_dir / wav.name.replace('.wav', '_ev2_frame.npy')
@@ -54,7 +54,7 @@ def process_ravdess(ravdess_dir, output_dir, model):
         if features is not None:
             np.save(feat_file, features)
             
-            # RAVDESS标签
+            # RAVDESS labels
             parts = wav.stem.split('-')
             if len(parts) >= 3:
                 emo_map = {1:'neutral', 2:'calm', 3:'happy', 4:'sad', 
@@ -68,7 +68,7 @@ def process_esd(esd_dir, output_dir, model):
     output_dir = Path(output_dir)
     
     wav_files = list(esd_dir.glob("*/*.wav"))
-    logger.info(f"ESD: {len(wav_files)}个文件")
+    logger.info(f"ESD: {len(wav_files)} files")
     
     for wav in tqdm(wav_files, desc="ESD"):
         rel_path = wav.relative_to(esd_dir)
@@ -88,19 +88,19 @@ def process_esd(esd_dir, output_dir, model):
 
 def main():
     logger.info("="*60)
-    logger.info("特征提取")
+    logger.info("Feature extraction")
     logger.info("="*60)
     
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    logger.info(f"设备: {device}")
+    logger.info(f"Device: {device}")
     
-    # 加载模型（完全照搬emilia_vevo_integration）
+    # Load model (fully following emilia_vevo_integration)
     from funasr import AutoModel
-    logger.info("加载emotion2vec...")
+    logger.info("Loading emotion2vec...")
     model = AutoModel(model="emotion2vec/emotion2vec_base", hub="hf", device=str(device))
-    logger.info("✅ 模型加载成功")
+    logger.info("✅ Model loaded successfully")
     
-    # 使用环境变量或相对路径（用户通过 local_config.sh 配置）
+    # Use environment variables or relative paths (user configures via local_config.sh)
     data_root = Path(os.environ.get("DATASET_ROOT", "./raw_data"))
     output_root = Path(os.environ.get("EVAL_FEATURES_ROOT", "./data"))
     
@@ -110,7 +110,8 @@ def main():
     logger.info("\nESD")
     process_esd(data_root / "ESD", output_root / "ESD", model)
     
-    logger.info("\n✅ 完成")
+    logger.info("\n✅ Complete")
 
 if __name__ == "__main__":
     main()
+

@@ -1,5 +1,5 @@
 """
-ESD (Emotional Speech Dataset) 数据集实现
+ESD (Emotional Speech Dataset) dataset implementation
 """
 
 from pathlib import Path
@@ -16,27 +16,27 @@ logger = logging.getLogger(__name__)
 
 class ESDDataset(EmotionDataset):
     """
-    ESD数据集
+    ESD dataset
     
-    特点：
-    - 5类情感
-    - 完全平衡（每类7,000个样本，中英文各3,500）
-    - 目录结构清晰
+    Characteristics:
+    - 5 emotion classes
+    - Fully balanced (7,000 samples per class, 3,500 each for English and Chinese)
+    - Clear directory structure
     """
     
     def __init__(self, data_root: str, languages: Optional[List[str]] = None, samples_per_emotion: int = 100):
         """
         Args:
-            data_root: ESD数据集根目录
-            languages: 使用的语言列表，None表示使用全部（['english', 'chinese']）
-            samples_per_emotion: 每个情感采样的样本数
+            data_root: ESD dataset root directory
+            languages: List of languages to use, None means use all (['english', 'chinese'])
+            samples_per_emotion: number of samples to sample per emotion
         """
         super().__init__(data_root)
         self._num_classes = 5
         self.languages = languages or ['english', 'chinese']
         self.samples_per_emotion = samples_per_emotion
         
-        # 加载样本
+        # Load samples
         self.samples = self.load_samples()
         
     @property
@@ -49,17 +49,17 @@ class ESDDataset(EmotionDataset):
     
     def get_emotion_mapping(self) -> Dict[str, str]:
         """
-        ESD标签 -> emotion2vec 9类映射
+        ESD label -> emotion2vec 9 classes mapping
         
-        ESD标签（中英文）：
+        ESD labels (Chinese and English):
         - English: Angry, Happy, Neutral, Sad, Surprise
         - Chinese: 生气, 快乐, 中立, 伤心, 惊喜
         
-        映射策略：
-        - 直接对应，只需处理拼写差异（surprise → surprised）
+        Mapping strategy:
+        - Direct correspondence, only handle spelling differences (surprise → surprised)
         """
         return {
-            # 英文标签
+            # English labels
             'Angry': 'angry',
             'angry': 'angry',
             'Happy': 'happy',
@@ -68,9 +68,9 @@ class ESDDataset(EmotionDataset):
             'neutral': 'neutral',
             'Sad': 'sad',
             'sad': 'sad',
-            'Surprise': 'surprised',  # 注意拼写转换
+            'Surprise': 'surprised',  # Note spelling conversion
             'surprise': 'surprised',
-            # 中文标签
+            # Chinese labels
             '生气': 'angry',
             '快乐': 'happy',
             '中立': 'neutral',
@@ -80,18 +80,18 @@ class ESDDataset(EmotionDataset):
     
     def get_emotion_filter(self) -> Optional[List[str]]:
         """
-        返回启用的情感类别
+        Return enabled emotion categories
         
-        默认：None（使用全部5类）
-        TODO: 用户后续可能只使用部分情感
+        Default: None (use all 5 classes)
+        TODO: User may only use some emotions later
         """
-        return None  # TODO: 用户后续配置
+        return None  # TODO: User configuration later
     
     def load_samples(self) -> List[Dict]:
         """
-        加载ESD样本（从已提取的特征文件）
+        Load ESD samples (from already extracted features files)
         
-        evaluation_features/ESD/目录结构：
+        evaluation_features/ESD/ directory structure:
             0001/
                 Angry/
                     0001_000351_ev2_frame.npy
@@ -99,7 +99,7 @@ class ESDDataset(EmotionDataset):
         """
         samples = []
         
-        # 直接查找所有*_ev2_frame.npy文件
+        # Directly search for all *_ev2_frame.npy files
         feature_files = list(self.data_root.glob("**/*_ev2_frame.npy"))
         
         for feat_file in feature_files:
@@ -111,41 +111,41 @@ class ESDDataset(EmotionDataset):
             with open(label_file) as f:
                 emotion = f.read().strip()
             
-            # 从路径推断说话人ID
-            speaker_id = feat_file.parent.parent.name  # 如0001
+            # Infer speaker ID from path
+            speaker_id = feat_file.parent.parent.name  # e.g. 0001
             
-            # 判断语言（0001-0010中文，0011-0020英文）
+            # Determine language (0001-0010 Chinese, 0011-0020 English)
             if speaker_id.isdigit():
                 sid_num = int(speaker_id)
                 lang = 'chinese' if sid_num <= 10 else 'english'
             else:
                 lang = 'unknown'
             
-            # 过滤语言
+            # Filter language
             if lang not in self.languages:
                 continue
             
-            # 为了兼容method_rate_sweep.py，把features_path当作audio_path
-            # method_rate_sweep.py会用.replace('.wav', '_ev2_frame.npy')查找特征
-            # 我们直接给它正确的特征路径
+            # For compatibility with method_rate_sweep.py, use features_path as audio_path
+            # method_rate_sweep.py will use .replace('.wav', '_ev2_frame.npy') to find features
+            # We directly give it the correct features path
             fake_audio_path = str(feat_file).replace('_ev2_frame.npy', '.wav')
             
             sample = {
-                'audio_path': fake_audio_path,  # 兼容method_rate_sweep
+                'audio_path': fake_audio_path,  # compatible with method_rate_sweep
                 'emotion': emotion,
                 'speaker_id': f'{lang}_{speaker_id}',
                 'language': lang,
             }
             samples.append(sample)
         
-        # 应用emotion_filter
+        # Apply emotion_filter
         samples = self.filter_samples_by_emotion(samples)
         
-        logger.info(f"✅ ESD: 加载了 {len(samples)} 个样本 (语言: {self.languages})")
+        logger.info(f"✅ ESD: Loaded {len(samples)} samples (languages: {self.languages})")
         
-        # 采样（随机种子1344871保证可复现）
+        # Sample (random seed 1344871 ensures reproducibility)
         samples = self.sample_balanced(samples, samples_per_emotion=self.samples_per_emotion, seed=1344871)
-        logger.info(f"   采样后: {len(samples)} 个样本（每类{self.samples_per_emotion}）")
+        logger.info(f"   After sampling: {len(samples)} samples ({self.samples_per_emotion} per class)")
         
         return samples
 

@@ -11,57 +11,57 @@
 #SBATCH --output=logs/test_reproduce_%j.out
 #SBATCH --error=logs/test_reproduce_%j.err
 
-# 快速测试实验复现系统
-# 用于验证环境和脚本是否正常工作
-# 测试配置：每个情感10样本，3个码率点
+# Quick test of experiment reproduction system
+# To verify environment and scripts work correctly
+# Test configuration: 10 samples per emotion, 3 rate points
 
 echo "================================================================"
-echo "实验复现系统测试"
+echo "Experiment reproduction system test"
 echo "================================================================"
 echo "Job ID: $SLURM_JOB_ID"
 echo "Node: $SLURMD_NODENAME"
 echo "Time: $(date)"
 echo ""
 
-# 创建日志目录
+# Create log directory
 mkdir -p logs
 
-# 加载环境配置
+# Load environment configuration
 if [ -f "local_config.sh" ]; then
-    echo "加载本地配置..."
+    echo "Loading local configuration..."
     source local_config.sh
 else
-    echo "⚠️  未找到 local_config.sh，使用默认环境"
+    echo "⚠️  local_config.sh not found, using default environment"
 fi
 
-# 激活Python环境
+# Activate Python environment
 if [ -n "$CONDA_ENV" ]; then
-    echo "激活Conda环境: $CONDA_ENV"
+    echo "Activating Conda environment: $CONDA_ENV"
     eval "$(conda shell.bash hook)"
     conda activate $CONDA_ENV
 elif [ -n "$VENV_PATH" ]; then
-    echo "激活虚拟环境: $VENV_PATH"
+    echo "Activating virtual environment: $VENV_PATH"
     source $VENV_PATH/bin/activate
 fi
 
 echo ""
 echo "================================================================"
-echo "步骤1: 检查依赖"
+echo "Step 1: Check dependencies"
 echo "================================================================"
 python3 test_dependencies.py
 if [ $? -ne 0 ]; then
-    echo "❌ 依赖检查失败"
+    echo "❌ Dependency check failed"
     exit 1
 fi
 
 echo ""
 echo "================================================================"
-echo "步骤2: 准备测试子集（10样本/情感）"
+echo "Step 2: Prepare test subset (10 samples/emotion)"
 echo "================================================================"
 
-# 如果测试子集已存在，先删除
+# If test subset exists, delete it first
 if [ -d "data_subset_test" ]; then
-    echo "删除旧的测试子集..."
+    echo "Removing old test subset..."
     rm -rf data_subset_test
 fi
 
@@ -72,17 +72,17 @@ python3 prepare_evaluation_subset.py \
     --seed 42
 
 if [ $? -ne 0 ]; then
-    echo "❌ 数据准备失败"
+    echo "❌ Data preparation failed"
     exit 1
 fi
 
 echo ""
 echo "================================================================"
-echo "步骤3: 运行快速评估（3个码率点）"
+echo "Step 3: Run quick evaluation (3 rate points)"
 echo "================================================================"
 
-# 测试ESD数据集
-echo "测试 ESD 数据集..."
+# Test ESD dataset
+echo "Testing ESD dataset..."
 python3 run_evaluation.py \
     --dataset esd \
     --data-root data_subset_test \
@@ -91,62 +91,62 @@ python3 run_evaluation.py \
     --output-dir evaluation_results_test
 
 if [ $? -ne 0 ]; then
-    echo "❌ ESD评估失败"
+    echo "❌ ESD evaluation failed"
     exit 1
 fi
 
 echo ""
 echo "================================================================"
-echo "步骤4: 测试绘图脚本"
+echo "Step 4: Test plotting script"
 echo "================================================================"
 
-# 测试单个绘图脚本
-echo "测试绘图功能..."
+# Test single plotting script
+echo "Testing plotting features..."
 python3 plot_overall_accuracy_and_confusion.py
 
 if [ $? -ne 0 ]; then
-    echo "⚠️  绘图测试失败（可能缺少评估结果）"
-    echo "   继续测试..."
+    echo "⚠️  Plotting test failed (may be missing evaluation results)"
+    echo "   Continuing test..."
 fi
 
 echo ""
 echo "================================================================"
-echo "测试完成"
+echo "Test complete"
 echo "================================================================"
 
-# 显示生成的文件
-echo "生成的测试文件："
+# Display generated files
+echo "Generated test files:"
 if [ -d "data_subset_test" ]; then
-    echo "  ✅ 测试子集："
+    echo "  ✅ Test subset:"
     du -sh data_subset_test/
     ls -1 data_subset_test/
 fi
 
 if [ -d "evaluation_results_test" ]; then
-    echo "  ✅ 评估结果："
+    echo "  ✅ Evaluation results:"
     ls -lh evaluation_results_test/*.json 2>/dev/null | head -5
 fi
 
 echo ""
-echo "🎉 快速测试通过！"
+echo "🎉 Quick test passed!"
 echo ""
-echo "完整实验运行命令："
+echo "Full experiment run command:"
 echo "  sbatch scripts/run_full_reproduce.slurm"
 echo ""
-echo "或手动运行："
+echo "Or run manually:"
 echo "  python3 prepare_evaluation_subset.py"
 echo "  python3 reproduce_experiments.py --mode all"
 
-# 清理测试数据（可选）
-read -t 10 -p "是否删除测试数据？(y/n，10秒后自动保留): " cleanup
+# Clean up test data (optional)
+read -t 10 -p "Delete test data? (y/n, auto-keep after 10 seconds): " cleanup
 if [[ $cleanup =~ ^[Yy]$ ]]; then
-    echo "清理测试数据..."
+    echo "Cleaning up test data..."
     rm -rf data_subset_test
     rm -rf evaluation_results_test
-    echo "✅ 清理完成"
+    echo "✅ Cleanup complete"
 else
-    echo "保留测试数据供检查"
+    echo "Keeping test data for inspection"
 fi
 
-echo "完成时间: $(date)"
+echo "Completion time: $(date)"
 

@@ -1,6 +1,6 @@
 """
-统一评估脚本 - 支持所有数据集
-用法:
+Unified evaluation script - Support all datasets
+Usage:
     python run_evaluation.py --dataset iemocap
     python run_evaluation.py --dataset ravdess --samples 50
     python run_evaluation.py --dataset esd --rates "10,30,50,100"
@@ -13,7 +13,7 @@ import argparse
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-# 项目现在是自包含的，不需要引用外层 Amphion 代码
+# Project is now self-contained, no need to reference outer Amphion code
 
 from config import get_default_config
 from grouped_rvq import GroupedResidualVQ
@@ -25,7 +25,7 @@ if str(eval_module_path) not in sys.path:
 
 from emotion_classifier import EmotionClassifierV2
 from method_rate_sweep import rate_sweep_evaluation
-# analyzer 延迟导入（避免matplotlib依赖问题）
+# analyzer lazy import (avoid matplotlib dependency issues)
 # from analyzer import ResultAnalyzer
 
 dataset_module_path = Path(__file__).parent / 'datasets'
@@ -50,19 +50,21 @@ DATASETS = {
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='评估情感识别')
+    parser = argparse.ArgumentParser(description='Evaluate emotion recognition')
     parser.add_argument('--dataset', type=str, required=True, choices=DATASETS.keys(),
-                       help='数据集名称 (iemocap/ravdess/esd)')
+                       help='Dataset name (iemocap/ravdess/esd)')
     parser.add_argument('--samples', type=int, default=100,
-                       help='每个情感的样本数 (默认: 100)')
+                       help='Number of samples per emotion (default: 100)')
     parser.add_argument('--rates', type=str, default=None,
-                       help='码率点 (逗号分隔, 如 "10,30,50,100")')
+                       help='Rate points (comma separated, e.g. "10,30,50,100")')
     parser.add_argument('--output-dir', type=str, default='evaluation_results',
-                       help='输出目录 (默认: evaluation_results)')
+                       help='Output directory (default: evaluation_results)')
     parser.add_argument('--rvq-checkpoint', type=str, default='checkpoints/grouped_rvq_best.pt',
-                       help='RVQ模型路径')
+                       help='RVQ model path')
     parser.add_argument('--entropy-checkpoint', type=str, default='checkpoints/entropy_model_best.pt',
-                       help='熵模型路径')
+                       help='Entropy model path')
+    parser.add_argument('--data-root', type=str, default='data',
+                       help='Data root directory (default: data)')
     return parser.parse_args()
 
 
@@ -70,12 +72,12 @@ def main():
     args = parse_args()
     
     logger.info("="*80)
-    logger.info(f"{args.dataset.upper()}评估（{args.samples}样本/情感）")
+    logger.info(f"{args.dataset.upper()} Evaluation ({args.samples} samples/emotion)")
     logger.info("="*80)
     
     config = get_default_config()
     
-    # 覆盖配置
+    # Override configuration
     if args.rates:
         rate_list = [float(r.strip()) for r in args.rates.split(',')]
         config['evaluation'].rate_sweep_rates_bpf = rate_list
@@ -83,28 +85,28 @@ def main():
         config['evaluation'].rate_sweep_rates_bpf = config['entropy_model'].target_bpf_grid
     
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    logger.info(f"使用设备: {device}")
+    logger.info(f"Using device: {device}")
     
     if torch.cuda.is_available():
         logger.info(f"GPU: {torch.cuda.get_device_name(0)}")
-        logger.info(f"显存: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.2f} GB")
+        logger.info(f"GPU memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.2f} GB")
     
-    # 打印完整配置信息
+    # Print full configuration info
     logger.info("\n" + "="*80)
-    logger.info("配置信息")
+    logger.info("Configuration")
     logger.info("="*80)
-    logger.info(f"Lambda范围: [{config['rate_control'].lambda_min}, {config['rate_control'].lambda_max}]")
-    logger.info(f"Lambda初始值: {config['rate_control'].lambda_init}")
-    logger.info(f"二分搜索最大迭代次数: {config['rate_control'].max_binary_search_iters}")
-    logger.info(f"码率容差: {config['rate_control'].rate_tolerance_bpf} bpf")
-    logger.info(f"目标码率: {config['evaluation'].rate_sweep_rates_bpf}")
-    logger.info(f"RVQ配置: {config['grouped_rvq'].num_groups}组 × {config['grouped_rvq'].num_fine_layers}层")
-    logger.info(f"使用Full Ranking ECVQ: {config['grouped_rvq'].use_full_ranking_ecvq}")
+    logger.info(f"Lambda range: [{config['rate_control'].lambda_min}, {config['rate_control'].lambda_max}]")
+    logger.info(f"Lambda initial value: {config['rate_control'].lambda_init}")
+    logger.info(f"Binary search max iterations: {config['rate_control'].max_binary_search_iters}")
+    logger.info(f"Rate tolerance: {config['rate_control'].rate_tolerance_bpf} bpf")
+    logger.info(f"Target rates: {config['evaluation'].rate_sweep_rates_bpf}")
+    logger.info(f"RVQ configuration: {config['grouped_rvq'].num_groups} groups × {config['grouped_rvq'].num_fine_layers} layers")
+    logger.info(f"Using Full Ranking ECVQ: {config['grouped_rvq'].use_full_ranking_ecvq}")
     logger.info("="*80)
     
-    # 加载模型
+    # Load models
     logger.info("\n" + "="*80)
-    logger.info("加载模型")
+    logger.info("Loading models")
     logger.info("="*80)
     
     rvq_model = GroupedResidualVQ(config['grouped_rvq'])
@@ -112,43 +114,43 @@ def main():
     rvq_model.load_state_dict(rvq_checkpoint['model_state_dict'])
     rvq_model = rvq_model.to(device)
     rvq_model.eval()
-    logger.info(f"✓ RVQ模型已加载: {args.rvq_checkpoint}")
+    logger.info(f"✓ RVQ model loaded: {args.rvq_checkpoint}")
     
     entropy_model = create_entropy_model(config['entropy_model'], config['grouped_rvq'])
     entropy_checkpoint = torch.load(args.entropy_checkpoint, map_location=device)
     entropy_model.load_state_dict(entropy_checkpoint['model_state_dict'])
     entropy_model = entropy_model.to(device)
     entropy_model.eval()
-    logger.info(f"✓ 熵模型已加载: {args.entropy_checkpoint}")
+    logger.info(f"✓ Entropy model loaded: {args.entropy_checkpoint}")
     
     classifier = EmotionClassifierV2(
-        model_name="iic/emotion2vec_plus_base",  # 使用plus_base(768维)匹配提取的特征
+        model_name="iic/emotion2vec_plus_base",  # Use plus_base (768-dim) to match extracted features
         hub="modelscope",
         device=device
     )
-    logger.info(f"✓ 分类器已加载: emotion2vec_plus_base (768维)")
+    logger.info(f"✓ Classifier loaded: emotion2vec_plus_base (768-dim)")
     
-    # 加载数据集
+    # Load dataset
     logger.info("\n" + "="*80)
-    logger.info("加载数据集")
+    logger.info("Loading dataset")
     logger.info("="*80)
     
     DatasetClass = DATASETS[args.dataset]
-    # 数据集路径：项目根目录/data/DATASET_NAME/
+    # Dataset path: project root directory/data/DATASET_NAME/
     project_root = Path(__file__).parent
-    dataset_data_root = project_root / 'data' / args.dataset.upper()
+    dataset_data_root = project_root / args.data_root / args.dataset.upper()
     dataset = DatasetClass(
         data_root=str(dataset_data_root),
         samples_per_emotion=args.samples
     )
     
-    logger.info(f"✓ {args.dataset.upper()}数据集已加载")
-    logger.info(f"  数据集: {dataset.name}")
-    logger.info(f"  总样本数: {len(dataset)}")
+    logger.info(f"✓ {args.dataset.upper()} dataset loaded")
+    logger.info(f"  Dataset: {dataset.name}")
+    logger.info(f"  Total samples: {len(dataset)}")
     
-    # 运行评估
+    # Run evaluation
     logger.info("\n" + "="*80)
-    logger.info("开始码率扫描评估")
+    logger.info("Starting rate sweep evaluation")
     logger.info("="*80)
     
     results = rate_sweep_evaluation(
@@ -161,18 +163,18 @@ def main():
         device=device
     )
     
-    # 分析结果
+    # Analyze results
     if results:
         logger.info("\n" + "="*80)
-        logger.info("分析结果")
+        logger.info("Analyzing results")
         logger.info("="*80)
         
         # analyzer = ResultAnalyzer(output_dir=Path(args.output_dir))
-        # analyzer.analyze_rate_sweep(results, dataset.name)  # 暂时注释，功能未实现
-        logger.info(f"✓ 评估结果已保存: {args.output_dir}/rate_sweep_{dataset.name}.json")
+        # analyzer.analyze_rate_sweep(results, dataset.name)  # Temporarily commented, feature not implemented
+        logger.info(f"✓ Evaluation results saved: {args.output_dir}/rate_sweep_{dataset.name}.json")
     
     logger.info("\n" + "="*80)
-    logger.info("评估完成！")
+    logger.info("Evaluation complete!")
     logger.info("="*80)
 
 

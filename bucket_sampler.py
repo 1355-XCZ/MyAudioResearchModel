@@ -1,6 +1,6 @@
 """
-长度分桶采样器 (Bucket Batch Sampler)
-用于减少padding，提高码本训练效率
+Bucket Batch Sampler
+Reduces padding and improves codebook training efficiency
 """
 
 import torch
@@ -11,15 +11,15 @@ from typing import Iterator, List
 
 class BucketBatchSampler(Sampler):
     """
-    按序列长度分桶的批次采样器
+    Batch sampler that buckets sequences by length
     
-    原理：
-    1. 将数据集按长度排序
-    2. 分成若干桶（bucket）
-    3. 每个bucket内随机采样batch
-    4. 保证同一batch内的序列长度接近，减少padding
+    Principle:
+    1. Sort dataset by length
+    2. Divide into buckets
+    3. Random sample batches within each bucket
+    4. Ensure similar sequence lengths in the same batch, reducing padding
     
-    使用示例:
+    Usage example:
         sampler = BucketBatchSampler(
             dataset,
             batch_size=32,
@@ -40,12 +40,12 @@ class BucketBatchSampler(Sampler):
     ):
         """
         Args:
-            dataset: 数据集（需要有length信息）
-            batch_size: 批次大小
-            num_buckets: 桶的数量（越多，长度越接近，但随机性降低）
-            shuffle: 是否在桶内打乱
-            drop_last: 是否丢弃最后不足batch_size的数据
-            seed: 随机种子
+            dataset: Dataset (must have length information)
+            batch_size: Batch size
+            num_buckets: Number of buckets (more buckets = closer lengths, but less randomness)
+            shuffle: Whether to shuffle within buckets
+            drop_last: Whether to drop last incomplete batch
+            seed: Random seed
         """
         self.dataset = dataset
         self.batch_size = batch_size
@@ -55,54 +55,54 @@ class BucketBatchSampler(Sampler):
         self.seed = seed
         self.epoch = 0
         
-        # 收集所有样本的长度
+        # Collect all sample lengths
         self.lengths = self._get_lengths()
         
-        # 按长度分桶
+        # Create buckets by length
         self.buckets = self._create_buckets()
         
-        # 计算总batch数
+        # Calculate total number of batches
         self.num_batches = sum(
             len(bucket) // batch_size if drop_last else (len(bucket) + batch_size - 1) // batch_size
             for bucket in self.buckets
         )
     
     def _get_lengths(self) -> np.ndarray:
-        """获取所有样本的长度（优化：避免Subset二次IO）"""
-        # 优先从Subset的底层数据集读取缓存长度
+        """Get all sample lengths (optimization: avoid double I/O for Subset)"""
+        # Priority: read cached lengths from Subset's base dataset
         if isinstance(self.dataset, Subset) and hasattr(self.dataset.dataset, 'get_length'):
             base = self.dataset.dataset
             idxs = self.dataset.indices
             return np.array([base.get_length(j) for j in idxs], dtype=np.int64)
         
-        # 回退方案
+        # Fallback method
         lengths = []
         for i in range(len(self.dataset)):
             try:
                 if hasattr(self.dataset, 'get_length'):
                     length = int(self.dataset.get_length(i))
                 else:
-                    # 加载样本并获取长度
+                    # Load sample and get length
                     sample = self.dataset[i]
                     if isinstance(sample, dict) and 'length' in sample:
                         length = int(sample['length'].item())
                     elif isinstance(sample, dict) and 'features' in sample:
                         length = int(sample['features'].shape[0])
                     else:
-                        length = 100  # 默认值
+                        length = 100  # Default value
             except Exception:
-                length = 100  # fallback
+                length = 100  # Fallback
             
             lengths.append(length)
         
         return np.array(lengths, dtype=np.int64)
     
     def _create_buckets(self) -> List[List[int]]:
-        """按长度分桶（使用linspace均匀切分，更稳健）"""
-        # 按长度排序的索引
+        """Create buckets by length (using linspace for uniform splitting, more robust)"""
+        # Sort indices by length
         sorted_indices = np.argsort(self.lengths)
         
-        # 使用linspace均匀切分，避免空桶
+        # Use linspace for uniform splitting, avoid empty buckets
         edges = np.linspace(0, len(sorted_indices), num=self.num_buckets + 1, dtype=np.int64)
         buckets = []
         
@@ -115,77 +115,77 @@ class BucketBatchSampler(Sampler):
         return buckets
     
     def __iter__(self) -> Iterator[List[int]]:
-        """生成批次"""
-        # 设置随机种子（保证epoch间可复现）
+        """Generate batches"""
+        # Set random seed (ensure reproducibility across epochs)
         g = torch.Generator()
         g.manual_seed(self.seed + self.epoch)
         
         all_batches = []
         
-        # 逐桶生成batch
+        # Generate batches per bucket
         for bucket in self.buckets:
-            # 桶内打乱（如果需要）
+            # Shuffle within bucket (if needed)
             if self.shuffle:
                 indices = torch.randperm(len(bucket), generator=g).tolist()
                 bucket_shuffled = [bucket[i] for i in indices]
             else:
                 bucket_shuffled = bucket
             
-            # 分batch
+            # Split into batches
             for i in range(0, len(bucket_shuffled), self.batch_size):
                 batch = bucket_shuffled[i:i + self.batch_size]
                 
                 if len(batch) == self.batch_size or not self.drop_last:
                     all_batches.append(batch)
         
-        # 打乱所有batch的顺序（保持桶内聚性，但batch间随机）
+        # Shuffle batch order (maintain bucket cohesion, but randomize between batches)
         if self.shuffle:
             batch_indices = torch.randperm(len(all_batches), generator=g).tolist()
             all_batches = [all_batches[i] for i in batch_indices]
 
-        # DDP 支持：让每个 rank 取不同子序列（步长切片）
-        # 修复：padding到world_size的整数倍，避免rank间批次数不一致导致死锁
+        # DDP support: let each rank take different subsequence (stride slicing)
+        # Fix: pad to world_size multiple, avoid inconsistent batch count between ranks causing deadlock
         rank, world_size = 0, 1
         if torch.distributed.is_available() and torch.distributed.is_initialized():
             rank = torch.distributed.get_rank()
             world_size = torch.distributed.get_world_size()
             
-            # 计算需要padding的批次数
+            # Calculate number of batches to pad
             n = len(all_batches)
-            pad = (-n) % world_size  # 需要补齐的批次数
+            pad = (-n) % world_size  # Number of batches to pad
             
             if pad > 0:
-                # 复制前pad个batch填充（循环复用）
+                # Copy first pad batches for padding (circular reuse)
                 all_batches += all_batches[:pad]
             
-            # 现在每个rank得到相同数量的批次
+            # Now each rank gets the same number of batches
             all_batches = all_batches[rank::world_size]
 
         return iter(all_batches)
     
     def __len__(self) -> int:
-        """返回总batch数（DDP 友好：返回当前 rank 视角的批次数）"""
+        """Return total batch count (DDP friendly: return batch count from current rank's perspective)"""
         import math
         n = self.num_batches
         if torch.distributed.is_available() and torch.distributed.is_initialized():
             world_size = torch.distributed.get_world_size()
-            # 与 __iter__ 的padding逻辑保持一致
-            # padding后总批次数: n + ((-n) % world_size)
+            # Keep consistent with __iter__ padding logic
+            # Total batch count after padding: n + ((-n) % world_size)
             n_padded = n + ((-n) % world_size)
-            # 每个rank得到的批次数严格相同
+            # Each rank gets exactly the same number of batches
             return n_padded // world_size
         return n
     
     def set_epoch(self, epoch: int):
-        """设置epoch（用于分布式训练和随机性控制）"""
+        """Set epoch (for distributed training and randomness control)"""
         self.epoch = epoch
 
 
 def test_bucket_sampler():
-    """测试BucketBatchSampler"""
+    """Test BucketBatchSampler"""
     from torch.utils.data import Dataset, DataLoader
     
-    # 创建模拟数据集
+    # Create mock dataset
     class DummyDataset(Dataset):
         def __init__(self, sizes):
             self.sizes = sizes
@@ -199,12 +199,12 @@ def test_bucket_sampler():
                 'length': torch.tensor([self.sizes[idx]])
             }
     
-    # 创建长度分布不均的数据集
+    # Create dataset with uneven length distribution
     np.random.seed(42)
     sizes = np.random.randint(50, 200, size=100)
     dataset = DummyDataset(sizes)
     
-    # 使用BucketBatchSampler
+    # Use BucketBatchSampler
     sampler = BucketBatchSampler(
         dataset,
         batch_size=8,
@@ -218,25 +218,25 @@ def test_bucket_sampler():
         collate_fn=lambda x: x
     )
     
-    print(f"总batch数: {len(loader)}")
+    print(f"Total batches: {len(loader)}")
     
-    # 检查前几个batch的长度分布
+    # Check length distribution of first few batches
     for i, batch in enumerate(loader):
         if i >= 5:
             break
         lengths = [item['length'].item() for item in batch]
-        print(f"Batch {i}: 长度范围 [{min(lengths)}, {max(lengths)}], "
-              f"标准差 {np.std(lengths):.1f}")
+        print(f"Batch {i}: length range [{min(lengths)}, {max(lengths)}], "
+              f"std {np.std(lengths):.1f}")
     
-    # 对比标准DataLoader
-    print("\n对比：标准DataLoader（无分桶）")
+    # Compare with standard DataLoader
+    print("\nComparison: standard DataLoader (no bucketing)")
     standard_loader = DataLoader(dataset, batch_size=8, shuffle=True, collate_fn=lambda x: x)
     for i, batch in enumerate(standard_loader):
         if i >= 5:
             break
         lengths = [item['length'].item() for item in batch]
-        print(f"Batch {i}: 长度范围 [{min(lengths)}, {max(lengths)}], "
-              f"标准差 {np.std(lengths):.1f}")
+        print(f"Batch {i}: length range [{min(lengths)}, {max(lengths)}], "
+              f"std {np.std(lengths):.1f}")
 
 
 if __name__ == "__main__":

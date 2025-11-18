@@ -1,74 +1,74 @@
 #!/bin/bash
-# 一键运行论文实验复现
+# One-click paper experiment reproduction
 # 
-# 此脚本将:
-# 1. 准备评估子集数据（每个情感100样本）
-# 2. 运行评估实验（3个数据集，47个码率点）
-# 3. 生成所有论文图表
+# This script:
+# 1. Prepare evaluation subset data (100 samples per emotion)
+# 2. Run evaluation experiment (3 datasets, 47 rate points)
+# 3. Generate all paper figures
 #
-# 预计运行时间: 2-4小时（取决于GPU性能）
+# Estimated runtime: 2-4 hours (depends on GPU performance)
 
-set -e  # 遇到错误立即退出
+set -e  # Exit immediately on error
 
 echo "================================================================"
-echo "论文实验一键复现脚本"
+echo "Paper Experiment One-click Reproduction Script"
 echo "================================================================"
 echo ""
 
-# 检查Python环境
-echo "检查Python环境..."
-python3 -c "import torch; print(f'PyTorch: {torch.__version__}')" || { echo "❌ PyTorch未安装"; exit 1; }
-python3 -c "import torch; print(f'CUDA可用: {torch.cuda.is_available()}')"
+# Check Python environment
+echo "Checking Python environment..."
+python3 -c "import torch; print(f'PyTorch: {torch.__version__}')" || { echo "❌ PyTorch not installed"; exit 1; }
+python3 -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}')"
 echo ""
 
-# 步骤1: 准备评估子集数据
+# Step 1: Prepare evaluation subset data
 echo "================================================================"
-echo "步骤 1/3: 准备评估子集数据"
+echo "Step 1/3: Prepare evaluation subset data"
 echo "================================================================"
-echo "随机抽取每个情感100个样本（种子=42，可复现）"
+echo "Randomly sample 100 samples per emotion (seed=42, reproducible)"
 echo ""
 
 if [ -d "data_subset" ]; then
-    echo "⚠️  data_subset目录已存在"
-    read -p "是否重新生成？(y/n): " -n 1 -r
+    echo "⚠️  data_subset directory already exists"
+    read -p "Regenerate? (y/n): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         rm -rf data_subset
         python3 prepare_evaluation_subset.py
     else
-        echo "跳过数据准备，使用现有子集"
+        echo "Skip data preparation, using existing subset"
     fi
 else
     python3 prepare_evaluation_subset.py
 fi
 
 echo ""
-echo "✅ 数据准备完成"
+echo "✅ Data preparation complete"
 echo ""
 
-# 步骤2 & 3: 运行评估和绘图
+# Step 2 & 3: Run evaluation and plotting
 echo "================================================================"
-echo "步骤 2-3/3: 运行评估实验并生成图表"
+echo "Step 2-3/3: Run evaluation experiment and generate figures"
 echo "================================================================"
-echo "数据集: ESD, IEMOCAP, RAVDESS"
-echo "码率点: 47个 (10-200 BPF步长5, 200-300 BPF步长20)"
-echo "样本数: 100/情感"
+echo "Datasets: ESD, IEMOCAP, RAVDESS"
+echo "Rate points: 47 (10-200 BPF step 5, 200-300 BPF step 20)"
+echo "Sample count: 100/emotion"
 echo ""
-echo "⏰ 预计运行时间: 2-4小时"
+echo "⏰ Estimated runtime: 2-4 hours"
 echo ""
 
 python3 reproduce_experiments.py --mode all
 
 echo ""
 echo "================================================================"
-echo "🎉 实验复现完成！"
+echo "🎉 Experiment reproduction complete!"
 echo "================================================================"
 echo ""
-echo "结果位置:"
-echo "  - 评估数据: evaluation_results/"
-echo "  - 论文图表: evaluation_results/figures/"
+echo "Result location:"
+echo "  - Evaluation data: evaluation_results/"
+echo "  - Paper figures: evaluation_results/figures/"
 echo ""
-echo "查看结果:"
+echo "View results:"
 echo "  ls -lh evaluation_results/*.json"
 echo "  ls -lh evaluation_results/figures/*.png"
 echo ""

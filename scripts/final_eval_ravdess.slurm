@@ -11,33 +11,33 @@
 #SBATCH --error=/data/gpfs/projects/punim2341/haoguangzhou/logs/final_eval_ravdess_%j.err
 
 # ===========================
-# 最终版本评估 - RAVDESS数据集
+# Final version evaluation - RAVDESS dataset
 # ===========================
-# 码率点: 5,10,15,20,25,30,35,40,45,50,60,70,80,100,150,200,300
-# 每个情感: 150个样本
-# 随机种子: 1344871（可复现）
+# Rate points: 10,20,30,40,60,80,100,120,140,160
+# Per emotion: 50 samples
+# Random seed: 1344871 (reproducible)
 # ===========================
 
 echo "================================================================"
-echo "最终评估: RAVDESS数据集"
+echo "Final evaluation: RAVDESS dataset"
 echo "Job ID: $SLURM_JOB_ID"
 echo "Node: $SLURM_NODELIST"
 echo "Start Time: $(date)"
 echo "================================================================"
 
-# 项目目录
+# Project directory
 PROJECT_DIR="/data/gpfs/projects/punim2341/haoguangzhou/voice/my-research/to_ready/MyAudioResearchModel"
 cd "$PROJECT_DIR" || exit 1
 
-# 加载local_config
+# Load local_config
 if [ -f "local_config.sh" ]; then
     source local_config.sh
 else
-    echo "错误: local_config.sh 不存在"
+    echo "Error: local_config.sh does not exist"
     exit 1
 fi
 
-# 加载模块
+# Load modules
 module purge
 module load GCCcore/11.3.0
 module load Python/3.10.4
@@ -45,32 +45,32 @@ module load GCC/11.3.0
 module load CUDA/12.2.0
 module load cuDNN/8.9.2.26-CUDA-12.2.0
 
-# 激活虚拟环境
+# Activate virtual environment
 source "$VENV_PATH/bin/activate"
 
-# 设置Python路径
+# Set Python path
 export PYTHONPATH="${PROJECT_DIR}:${PYTHONPATH}"
 
-# 检查GPU
+# Check GPU
 nvidia-smi
 
 echo ""
 echo "================================================================"
-echo "配置信息"
+echo "Configuration information"
 echo "================================================================"
-echo "数据集: RAVDESS"
-echo "每个情感样本数: 150"
-echo "随机种子: 1344871"
-echo "码率点: 5,10,15,20,25,30,35,40,45,50,60,70,80,100,150,200,300"
-echo "输出目录: evaluation_results/final"
+echo "dataset: RAVDESS"
+echo "Samples per emotion: 50"
+echo "Random seed: 1344871"
+echo "Rate points: 10,20,30,40,60,80,100,120,140,160"
+echo "Output directory: evaluation_results/final"
 echo "================================================================"
 echo ""
 
-# 运行评估
+# Run evaluation
 python run_evaluation.py \
     --dataset ravdess \
-    --samples 150 \
-    --rates "5,10,15,20,25,30,35,40,45,50,60,70,80,100,150,200,300" \
+    --samples 50 \
+    --rates "10,20,30,40,60,80,100,120,140,160" \
     --output-dir evaluation_results/final \
     --rvq-checkpoint checkpoints/grouped_rvq_best.pt \
     --entropy-checkpoint checkpoints/entropy_model_best.pt
@@ -79,7 +79,7 @@ exit_code=$?
 
 echo ""
 echo "================================================================"
-echo "任务结束"
+echo "Task complete"
 echo "Exit Code: $exit_code"
 echo "End Time: $(date)"
 echo "================================================================"

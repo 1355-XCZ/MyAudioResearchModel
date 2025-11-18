@@ -1,6 +1,6 @@
 """
-结果分析器
-生成可视化图表和统计报告
+Result analyzer
+Generate visualization charts and statistical reports
 """
 
 import json
@@ -15,57 +15,57 @@ logger = logging.getLogger(__name__)
 
 
 class ResultAnalyzer:
-    """结果分析器"""
+    """Result analyzer"""
     
     def __init__(self, output_dir: str):
         """
         Args:
-            output_dir: 输出目录
+            output_dir: output directory
         """
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
-        # 设置绘图样式
+        # Set plotting style
         sns.set_style('whitegrid')
         plt.rcParams['figure.dpi'] = 300
         plt.rcParams['font.size'] = 10
     
     def plot_rate_vs_accuracy(self, results_dict: Dict, save_name: str = 'rate_vs_accuracy.png'):
         """
-        绘制准确率 vs 码率曲线（分情感）
+        Plot accuracy vs bitrate curve (by emotion)
         
         Args:
-            results_dict: 多个数据集的结果字典
-            save_name: 保存文件名
+            results_dict: multiple datasets result dictionary
+            save_name: save file name
         """
         for dataset_name, results in results_dict.items():
-            # 提取码率点数据并排序
+            # Extract rate point data and sort
             rate_data = []
             for key, rate_point in results['rate_points'].items():
                 if 'target_rate_bpf' in rate_point and len(rate_point.get('predictions', [])) > 0:
                     target_rate = rate_point['target_rate_bpf']
-                    # 跳过inf/original（无量化baseline）
+                    # Skip inf/original (no quantization baseline)
                     if target_rate != float('inf') and key != "original":
                         rate_data.append({
-                            'rate_bpf': target_rate,  # 使用目标码率，不是平均码率
+                            'rate_bpf': target_rate,  # Use target rate, not average rate
                             'predictions': rate_point['predictions'],
                             'ground_truths': rate_point['ground_truths']
                         })
             
-            # 按码率排序
+            # Sort by rate
             rate_data.sort(key=lambda x: x['rate_bpf'])
             
             if not rate_data:
                 continue
             
-            # 计算每个情感的准确率
+            # Calculate accuracy per emotion
             emotion_mapping = results.get('emotion_mapping', {})
             all_emotions = set()
             for gt in rate_data[0]['ground_truths']:
                 all_emotions.add(gt)
             all_emotions = sorted(all_emotions)
             
-            # 创建图表
+            # Create chart
             fig, ax = plt.subplots(figsize=(12, 7))
             
             for emotion in all_emotions:
@@ -73,7 +73,7 @@ class ResultAnalyzer:
                 accuracies = []
                 
                 for rd in rate_data:
-                    # 计算该情感的准确率
+                    # Calculate accuracy for this emotion
                     emotion_preds = [p for p, g in zip(rd['predictions'], rd['ground_truths']) if g == emotion]
                     emotion_gts = [g for g in rd['ground_truths'] if g == emotion]
                     
@@ -98,15 +98,15 @@ class ResultAnalyzer:
             plt.savefig(save_path, dpi=300, bbox_inches='tight')
             plt.close()
             
-            logger.info(f"✅ 保存图表: {save_path}")
+            logger.info(f"✅ Saved chart: {save_path}")
     
     def plot_rate_vs_confidence(self, results_dict: Dict, save_name: str = 'rate_vs_confidence.png'):
         """
-        绘制置信度 vs 码率曲线
+        Plot confidence vs bitrate curve
         
         Args:
-            results_dict: 多个数据集的结果字典
-            save_name: 保存文件名
+            results_dict: multiple datasets result dictionary
+            save_name: save file name
         """
         fig, ax = plt.subplots(figsize=(10, 6))
         
@@ -133,20 +133,20 @@ class ResultAnalyzer:
         plt.savefig(save_path)
         plt.close()
         
-        logger.info(f"✅ 保存图表: {save_path}")
+        logger.info(f"✅ Saved chart: {save_path}")
     
     def plot_layer_vs_accuracy(self, results_dict: Dict, save_name: str = 'layer_vs_accuracy.png'):
         """
-        绘制准确率 vs 层数曲线
+        Plot accuracy vs layer curve
         
         Args:
-            results_dict: 多个数据集的结果字典
-            save_name: 保存文件名
+            results_dict: multiple datasets result dictionary
+            save_name: save file name
         """
         fig, ax = plt.subplots(figsize=(10, 6))
         
         for dataset_name, results in results_dict.items():
-            # 提取层数点数据并排序
+            # Extract layer point data and sort
             layer_data = []
             for key, layer_point in results['layer_points'].items():
                 if 'num_layers' in layer_point and len(layer_point.get('predictions', [])) > 0:
@@ -156,19 +156,19 @@ class ResultAnalyzer:
                         'ground_truths': layer_point['ground_truths']
                     })
             
-            # 按层数排序
+            # Sort by layer
             layer_data.sort(key=lambda x: x['num_layers'])
             
             if not layer_data:
                 continue
             
-            # 提取所有情感类别
+            # Extract all emotion categories
             all_emotions = set()
             for gt in layer_data[0]['ground_truths']:
                 all_emotions.add(gt)
             all_emotions = sorted(all_emotions)
             
-            # 创建图表
+            # Create chart
             fig, ax = plt.subplots(figsize=(12, 7))
             
             for emotion in all_emotions:
@@ -176,7 +176,7 @@ class ResultAnalyzer:
                 accuracies = []
                 
                 for ld in layer_data:
-                    # 计算该情感的准确率
+                    # Calculate accuracy for this emotion
                     emotion_preds = [p for p, g in zip(ld['predictions'], ld['ground_truths']) if g == emotion]
                     emotion_gts = [g for g in ld['ground_truths'] if g == emotion]
                     
@@ -201,21 +201,21 @@ class ResultAnalyzer:
             plt.savefig(save_path, dpi=300, bbox_inches='tight')
             plt.close()
             
-            logger.info(f"✅ 保存图表: {save_path}")
+            logger.info(f"✅ Saved chart: {save_path}")
     
     def plot_combined_comparison(self, rate_results: Dict, layer_results: Dict, 
                                 save_name: str = 'combined_comparison.png'):
         """
-        绘制码率方法和层数方法的对比图
+        Plot comparison between rate method and layer method
         
         Args:
-            rate_results: 码率扫描结果
-            layer_results: 层数扫描结果
-            save_name: 保存文件名
+            rate_results: rate sweep results
+            layer_results: layer sweep results
+            save_name: save file name
         """
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
         
-        # 左图：码率方法
+        # Left chart: rate method
         for dataset_name, results in rate_results.items():
             rates = []
             accuracies = []
@@ -234,7 +234,7 @@ class ResultAnalyzer:
         ax1.legend()
         ax1.grid(True, alpha=0.3)
         
-        # 右图：层数方法
+        # Right chart: layer method
         for dataset_name, results in layer_results.items():
             layers = []
             accuracies = []
@@ -262,32 +262,32 @@ class ResultAnalyzer:
         plt.savefig(save_path)
         plt.close()
         
-        logger.info(f"✅ 保存图表: {save_path}")
+        logger.info(f"✅ Saved chart: {save_path}")
     
     def generate_summary_report(self, rate_results: Dict, layer_results: Dict, 
                                save_name: str = 'summary_report.txt'):
         """
-        生成文本摘要报告
+        Generate text summary report
         
         Args:
-            rate_results: 码率扫描结果
-            layer_results: 层数扫描结果
-            save_name: 保存文件名
+            rate_results: rate sweep results
+            layer_results: layer sweep results
+            save_name: save file name
         """
         report_lines = []
         report_lines.append("="*80)
-        report_lines.append("情感RVQ信息瓶颈实验 - 评估摘要报告")
+        report_lines.append("Emotion RVQ Information Bottleneck Experiment - Evaluation Summary Report")
         report_lines.append("="*80)
         report_lines.append("")
         
-        # 码率扫描结果
-        report_lines.append("方法1: 码率扫描")
+        # Rate sweep results
+        report_lines.append("Method 1: Rate Sweep")
         report_lines.append("-"*80)
         
         for dataset_name, results in rate_results.items():
-            report_lines.append(f"\n数据集: {dataset_name}")
-            report_lines.append(f"  情感映射: {results['emotion_mapping']}")
-            report_lines.append(f"\n  码率点 | 准确率 | 置信度")
+            report_lines.append(f"\nDataset: {dataset_name}")
+            report_lines.append(f"  Emotion mapping: {results['emotion_mapping']}")
+            report_lines.append(f"\n  Rate Point | Accuracy | Confidence")
             report_lines.append(f"  " + "-"*40)
             
             for key, rate_point in sorted(results['rate_points'].items()):
@@ -297,16 +297,16 @@ class ResultAnalyzer:
                     conf = rate_point.get('avg_confidence', 0)
                     report_lines.append(f"  {rate_bpf:7.2f} | {acc:6.2%} | {conf:6.4f}")
         
-        # 层数扫描结果
-        report_lines.append("\n\n方法2: 层数扫描")
+        # Layer sweep results
+        report_lines.append("\n\nMethod 2: Layer Sweep")
         report_lines.append("-"*80)
         
         for dataset_name, results in layer_results.items():
-            report_lines.append(f"\n数据集: {dataset_name}")
-            report_lines.append(f"\n  层数 | 准确率 | 置信度")
+            report_lines.append(f"\nDataset: {dataset_name}")
+            report_lines.append(f"\n  Layers | Accuracy | Confidence")
             report_lines.append(f"  " + "-"*30)
             
-            # 按层数排序
+            # Sort by layer number
             layer_points_sorted = sorted(results['layer_points'].items(), 
                                         key=lambda x: x[1].get('num_layers', 0))
             
@@ -319,43 +319,44 @@ class ResultAnalyzer:
         
         report_lines.append("\n" + "="*80)
         
-        # 保存报告
+        # Save report
         report_text = "\n".join(report_lines)
         save_path = self.output_dir / save_name
         
         with open(save_path, 'w', encoding='utf-8') as f:
             f.write(report_text)
         
-        logger.info(f"✅ 保存摘要报告: {save_path}")
+        logger.info(f"✅ Saved summary report: {save_path}")
         
-        # 同时打印到日志
+        # Also print to log
         logger.info(f"\n{report_text}")
     
     def plot_all(self, rate_results: Dict, layer_results: Dict):
         """
-        生成所有图表和报告
+        Generate all charts and reports
         
         Args:
-            rate_results: 码率扫描结果
-            layer_results: 层数扫描结果
+            rate_results: rate sweep results
+            layer_results: layer sweep results
         """
-        logger.info("开始生成分析图表和报告...")
+        logger.info("Starting to generate analysis charts and reports...")
         
-        # 码率方法图表
+        # Rate method charts
         if rate_results:
             self.plot_rate_vs_accuracy(rate_results)
             self.plot_rate_vs_confidence(rate_results)
         
-        # 层数方法图表
+        # Layer method charts
         if layer_results:
             self.plot_layer_vs_accuracy(layer_results)
         
-        # 对比图
+        # Comparison charts
         if rate_results and layer_results:
             self.plot_combined_comparison(rate_results, layer_results)
         
-        # 摘要报告
+        # Summary report
         self.generate_summary_report(rate_results, layer_results)
         
-        logger.info(f"✅ 所有分析结果已保存到: {self.output_dir}")
+        logger.info(f"✅ All analysis results saved to: {self.output_dir}")
+
 

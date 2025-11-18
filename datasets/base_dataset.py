@@ -1,6 +1,6 @@
 """
-数据集基类 - 面向对象设计
-定义统一的接口，支持灵活的情感标签映射和过滤
+Dataset base class - Object-oriented design
+Define unified interface, support flexible emotion labels mapping and filtering
 """
 
 from abc import ABC, abstractmethod
@@ -11,18 +11,18 @@ import random
 
 class EmotionDataset(ABC):
     """
-    情感数据集抽象基类
+    Emotion dataset abstract base class
     
-    每个具体数据集需要实现：
-    1. load_samples() - 加载样本列表
-    2. get_emotion_mapping() - 情感标签映射到emotion2vec 9类
-    3. get_emotion_filter() - 启用的情感类别（用户后续配置）
+    Each concrete dataset needs to implement:
+    1. load_samples() - Load samples list
+    2. get_emotion_mapping() - Emotion labels mapping to emotion2vec 9 classes
+    3. get_emotion_filter() - Enabled emotion categories (for user configuration)
     """
     
     def __init__(self, data_root: str):
         """
         Args:
-            data_root: 数据集根目录
+            data_root: dataset root directory
         """
         self.data_root = Path(data_root)
         self.samples = []
@@ -30,71 +30,71 @@ class EmotionDataset(ABC):
     @abstractmethod
     def load_samples(self) -> List[Dict]:
         """
-        加载数据样本
+        Load data samples
         
         Returns:
             List of dicts, each containing:
-                - 'audio_path': str, 音频文件路径
-                - 'features_path': str (可选), ev2特征文件路径
-                - 'emotion': str, 原始情感标签
-                - 'speaker_id': str (可选), 说话人ID
-                - ... 其他元数据
+                - 'audio_path': str, audio file path
+                - 'features_path': str (optional), ev2 features file path
+                - 'emotion': str, original emotion label
+                - 'speaker_id': str (optional), speaker ID
+                - ... other metadata
         """
         pass
     
     @abstractmethod
     def get_emotion_mapping(self) -> Dict[str, str]:
         """
-        返回情感标签映射：数据集标签 -> emotion2vec 9类
+        Return emotion labels mapping: dataset label -> emotion2vec 9 classes
         
-        emotion2vec 9类：
+        emotion2vec 9 classes:
         ['angry', 'disgusted', 'fearful', 'happy', 'neutral', 
          'other', 'sad', 'surprised', 'unknown']
         
         Returns:
-            Dict[原始标签, emotion2vec标签]
+            Dict[original label, emotion2vec label]
         
-        注意：
-            - TODO: 用户后续确认映射策略
-            - 映射应该基于语义相似性
+        Note:
+            - TODO: User confirms mapping strategy later
+            - Mapping should be based on semantic similarity
         """
         pass
     
     @abstractmethod
     def get_emotion_filter(self) -> Optional[List[str]]:
         """
-        返回启用的情感类别（数据集原始标签）
+        Return enabled emotion categories (dataset original labels)
         
         Returns:
-            List of str: 启用的情感类别，None表示使用全部
+            List of str: enabled emotion categories, None means use all
         
-        注意：
-            - TODO: 用户后续配置（如只使用某些情感类别）
-            - 默认返回None（使用全部）
+        Note:
+            - TODO: User configuration (e.g. only use certain emotion categories)
+            - Default return None (use all)
         """
         pass
     
     @property
     @abstractmethod
     def name(self) -> str:
-        """数据集名称"""
+        """Dataset name"""
         pass
     
     @property
     @abstractmethod
     def num_classes(self) -> int:
-        """原始情感类别数"""
+        """Original emotion category count"""
         pass
     
     def filter_samples_by_emotion(self, samples: List[Dict]) -> List[Dict]:
         """
-        根据emotion_filter过滤样本
+        Filter samples by emotion_filter
         
         Args:
-            samples: 样本列表
+            samples: samples list
         
         Returns:
-            过滤后的样本列表
+            filtered samples list
         """
         emotion_filter = self.get_emotion_filter()
         
@@ -107,17 +107,17 @@ class EmotionDataset(ABC):
     
     def sample_balanced(self, samples: List[Dict], samples_per_emotion: int = 500, seed: int = 1344871) -> List[Dict]:
         """
-        每个情感类别采样固定数量的样本
+        Sample fixed number of samples per emotion category
         
         Args:
-            samples: 样本列表
-            samples_per_emotion: 每个情感采样的样本数
-            seed: 随机种子
+            samples: samples list
+            samples_per_emotion: number of samples to sample per emotion
+            seed: random seed
         
         Returns:
-            采样后的样本列表
+            sampled samples list
         """
-        # 按情感分组
+        # Group by emotion
         emotion_groups = {}
         for sample in samples:
             emotion = sample['emotion']
@@ -125,53 +125,53 @@ class EmotionDataset(ABC):
                 emotion_groups[emotion] = []
             emotion_groups[emotion].append(sample)
         
-        # 每个情感采样
+        # Sample per emotion
         random.seed(seed)
         sampled = []
         for emotion, group in emotion_groups.items():
             if len(group) <= samples_per_emotion:
-                # 样本数不足，全部保留
+                # Insufficient samples, keep all
                 sampled.extend(group)
             else:
-                # 随机采样
+                # Random sampling
                 sampled.extend(random.sample(group, samples_per_emotion))
         
-        # 打乱样本顺序，避免按情感分组排列
-        # 这样可以防止某些情感集中在特定区间，导致评估时出现系统性偏差
+        # Shuffle sample order, avoid grouping by emotion
+        # This prevents certain emotions from concentrating in specific intervals, causing systematic bias during evaluation
         random.shuffle(sampled)
         
         return sampled
     
     def map_emotion_to_ev2(self, emotion: str) -> str:
         """
-        将数据集标签映射到emotion2vec标签
+        Map dataset label to emotion2vec label
         
         Args:
-            emotion: 数据集原始标签
+            emotion: dataset original label
         
         Returns:
-            emotion2vec标签
+            emotion2vec label
         """
         mapping = self.get_emotion_mapping()
         
-        # 尝试直接映射
+        # Try direct mapping
         if emotion in mapping:
             return mapping[emotion]
         
-        # 尝试小写映射
+        # Try lowercase mapping
         emotion_lower = emotion.lower()
         if emotion_lower in mapping:
             return mapping[emotion_lower]
         
-        # 未找到映射，返回'other'
+        # No mapping found, return 'other'
         return 'other'
     
     def get_statistics(self) -> Dict:
         """
-        获取数据集统计信息
+        Get dataset statistics
         
         Returns:
-            统计信息字典
+            statistics dictionary
         """
         if not self.samples:
             self.samples = self.load_samples()
@@ -192,13 +192,13 @@ class EmotionDataset(ABC):
         return stats
     
     def __len__(self) -> int:
-        """返回样本数量"""
+        """Return number of samples"""
         if not self.samples:
             self.samples = self.load_samples()
         return len(self.samples)
     
     def __getitem__(self, idx: int) -> Dict:
-        """获取单个样本"""
+        """Get single sample"""
         if not self.samples:
             self.samples = self.load_samples()
         return self.samples[idx]

@@ -17,7 +17,7 @@ if [ -f "$PROJECT_DIR/local_config.sh" ]; then
     source "$PROJECT_DIR/local_config.sh"
 fi
 
-# 进入项目目录
+# Enter project directory
 cd "$PROJECT_DIR" || exit 1
 
 # Load modules
@@ -25,26 +25,26 @@ module purge
 module load GCCcore/11.3.0 Python/3.10.4 GCC/11.3.0 OpenMPI/4.1.4
 module load FFmpeg/4.4.2 espeak-ng/1.52 CUDA/11.8.0 cuDNN/8.7.0.84-CUDA-11.8.0
 
-# 激活虚拟环境（如果配置了）
+# Activate virtual environment (if configured)
 if [ -n "$VENV_PATH" ] && [ -f "$VENV_PATH/bin/activate" ]; then
     source "$VENV_PATH/bin/activate"
 fi
 
-# 设置环境变量（项目现在是自包含的）
+# Set environment variables (project is now self-contained)
 export PYTHONUNBUFFERED=1
 export PROJECT_ROOT=$(pwd)
 export PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH}"
 
 echo "=========================================="
-echo "提取评估数据集的emotion2vec特征"
+echo "Extract evaluation dataset emotion2vec features"
 echo "=========================================="
-echo "时间: $(date)"
+echo "Time: $(date)"
 
 python extract_eval_features.py
 
 echo ""
 echo "=========================================="
-echo "完成时间: $(date)"
+echo "Completion time: $(date)"
 echo "=========================================="
 
 

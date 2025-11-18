@@ -1,180 +1,180 @@
 #!/bin/bash
 
 # ================================================================
-# 超快速测试管道 - 10样本/情感
+# Ultra-fast Test Pipeline - 10 samples/emotion
 # ================================================================
-# 功能：
-#   1. 检查/创建虚拟环境（如果已存在则跳过）
-#   2. 安装依赖（如果已安装则跳过）
-#   3. 准备快速测试数据子集（10样本/情感）
-#   4. 运行快速评估（4个码率点 × 3个数据集）
-#   5. 生成所有论文图表
+# Features:
+#   1. Check/Create virtual environment (skip if already exists)
+#   2. Install dependencies (skip if already installed)
+#   3. Prepare quick test data subset (10 samples/emotion)
+#   4. Run quick evaluation (4 rate points × 3 datasets)
+#   5. Generate all paper figures
 #
-# 使用方法：
-#   本地运行:    bash reproduce_quick_test.sh
-#   SLURM集群:   sbatch scripts/quick_test_10samples.slurm
+# Usage:
+#   Local execution:    bash reproduce_quick_test.sh
+#   SLURM cluster:      sbatch scripts/quick_test_10samples.slurm
 #
-# 预计时间: 5-10分钟（首次需加15分钟安装）
+# Estimated time: 5-10 minutes (first time needs +15 min for installation)
 # ================================================================
 
-set -e  # 遇到错误立即退出
+set -e  # Exit immediately on error
 
 PROJECT_ROOT=$(pwd)
 VENV_DIR="$PROJECT_ROOT/reproduce_venv"
 
 echo "================================================================"
-echo "⚡ 超快速测试管道（10样本/情感）"
+echo "⚡ Ultra-fast Test Pipeline (10 samples/emotion)"
 echo "================================================================"
-echo "项目目录: $PROJECT_ROOT"
-echo "开始时间: $(date)"
+echo "Project directory: $PROJECT_ROOT"
+echo "Start time: $(date)"
 echo ""
 
 # ================================================================
-# 步骤1: 检查/创建虚拟环境
+# Step 1: Check/Create virtual environment
 # ================================================================
 echo "================================================================"
-echo "步骤1: 检查Python虚拟环境"
+echo "Step 1: Check Python virtual environment"
 echo "================================================================"
 
 if [ -d "$VENV_DIR" ] && [ -f "$VENV_DIR/bin/python" ]; then
-    echo "✅ 发现现有虚拟环境: $VENV_DIR"
-    echo "   跳过环境创建步骤"
+    echo "✅ Found existing virtual environment: $VENV_DIR"
+    echo "   Skip environment creation step"
 else
-    echo "📦 创建新的虚拟环境..."
+    echo "📦 Creating new virtual environment..."
     python3 -m venv "$VENV_DIR"
-    echo "✅ 虚拟环境已创建: $VENV_DIR"
+    echo "✅ Virtual environment created: $VENV_DIR"
 fi
 
-# 激活虚拟环境
+# Activate virtual environment
 source "$VENV_DIR/bin/activate"
-echo "✅ 虚拟环境已激活"
+echo "✅ Virtual environment activated"
 echo "   Python: $(which python)"
-echo "   版本: $(python --version)"
+echo "   Version: $(python --version)"
 echo ""
 
 # ================================================================
-# 步骤2: 检查/安装依赖
+# Step 2: Check/Install dependencies
 # ================================================================
 echo "================================================================"
-echo "步骤2: 检查项目依赖"
+echo "Step 2: Check project dependencies"
 echo "================================================================"
 
-# 检查关键包是否已安装
+# Check if key packages are installed
 NEED_INSTALL=false
 
 if ! python -c "import torch" 2>/dev/null; then
-    echo "❌ torch 未安装"
+    echo "❌ torch not installed"
     NEED_INSTALL=true
 elif ! python -c "import funasr" 2>/dev/null; then
-    echo "❌ funasr 未安装"
+    echo "❌ funasr not installed"
     NEED_INSTALL=true
 elif ! python -c "import vector_quantize_pytorch" 2>/dev/null; then
-    echo "❌ vector_quantize_pytorch 未安装"
+    echo "❌ vector_quantize_pytorch not installed"
     NEED_INSTALL=true
 else
-    echo "✅ 核心依赖已安装"
-    echo "   跳过安装步骤"
+    echo "✅ Core dependencies installed"
+    echo "   Skip installation step"
 fi
 
 if [ "$NEED_INSTALL" = true ]; then
     echo ""
-    echo "📦 安装项目依赖..."
-    echo "   这可能需要10-15分钟，请耐心等待..."
+    echo "📦 Installing project dependencies..."
+    echo "   This may take 10-15 minutes, please wait..."
     pip install --upgrade pip setuptools wheel -q
     pip install -r requirements.txt
-    echo "✅ 依赖安装完成"
+    echo "✅ Dependencies installed"
 fi
 
 echo ""
 
 # ================================================================
-# 步骤3: 验证环境完整性
+# Step 3: Verify environment integrity
 # ================================================================
 echo "================================================================"
-echo "步骤3: 验证环境完整性"
+echo "Step 3: Verify environment integrity"
 echo "================================================================"
 
 python test_dependencies.py
 
 if [ $? -ne 0 ]; then
     echo ""
-    echo "❌ 环境验证失败！请检查错误信息"
+    echo "❌ Environment verification failed! Please check error messages"
     exit 1
 fi
 
 echo ""
-echo "✅ 环境验证通过"
+echo "✅ Environment verification passed"
 echo ""
 
 # ================================================================
-# 步骤4: 准备快速测试数据子集
+# Step 4: Prepare quick test data subset
 # ================================================================
 echo "================================================================"
-echo "步骤4: 准备快速测试数据子集"
+echo "Step 4: Prepare quick test data subset"
 echo "================================================================"
-echo "⚠️  这是超快速测试版本"
+echo "⚠️  This is ultra-fast test version"
 echo ""
-echo "配置:"
-echo "  - 数据集: ESD, IEMOCAP, RAVDESS"
-echo "  - 样本数: 10/情感（快速测试）"
-echo "  - 随机种子: 42 (保证可复现)"
+echo "Configuration:"
+echo "  - Datasets: ESD, IEMOCAP, RAVDESS"
+echo "  - Sample count: 10/emotion (quick test)"
+echo "  - Random seed: 42 (ensure reproducibility)"
 echo ""
 
-echo "📊 准备快速测试数据子集..."
+echo "📊 Preparing quick test data subset..."
 python prepare_evaluation_subset.py \
     --datasets esd iemocap ravdess \
     --samples 10 \
     --seed 42 \
     --target-data data_subset_quick
 
-echo "✅ 快速测试数据子集已准备"
+echo "✅ Quick test data subset prepared"
 echo ""
 
 # ================================================================
-# 步骤5: 运行快速测试评估（4个码率点，10样本）
+# Step 5: Run quick test evaluation (4 rate points, 10 samples)
 # ================================================================
 echo "================================================================"
-echo "步骤5: 运行快速测试评估"
+echo "Step 5: Run quick test evaluation"
 echo "================================================================"
 echo ""
-echo "配置:"
-echo "  - 码率点: 4个 (10, 100, 200, 300 BPF)"
-echo "  - 数据集: 3个 (ESD, IEMOCAP, RAVDESS)"
-echo "  - 样本数: 10/情感"
-echo "  - 总评估: ~160次"
-echo "  - 预计时间: 5-10分钟 ⚡"
+echo "Configuration:"
+echo "  - Rate points: 4 (10, 100, 200, 300 BPF)"
+echo "  - Datasets: 3 (ESD, IEMOCAP, RAVDESS)"
+echo "  - Sample count: 10/emotion"
+echo "  - Total evaluations: ~160"
+echo "  - Estimated time: 5-10 minutes ⚡"
 echo ""
 
-# 测试用码率点
+# Test rate points
 TEST_RATES="10,100,200,300"
 
 OUTPUT_DIR="evaluation_results_quick"
 mkdir -p "$OUTPUT_DIR"
 
-# 评估每个数据集
+# Evaluate each dataset
 for DATASET in esd iemocap ravdess; do
     echo ""
-    echo "📊 评估 ${DATASET^^}..."
+    echo "📊 Evaluating ${DATASET^^}..."
     python run_evaluation.py \
         --dataset "$DATASET" \
         --data-root data_subset_quick \
         --samples 10 \
         --rates "$TEST_RATES" \
         --output-dir "$OUTPUT_DIR"
-    echo "✅ ${DATASET^^} 评估完成"
+    echo "✅ ${DATASET^^} evaluation complete"
 done
 
 echo ""
-echo "✅ 所有数据集快速测试评估完成"
+echo "✅ All dataset quick test evaluations complete"
 echo ""
 
 # ================================================================
-# 步骤6: 生成论文图表
+# Step 6: Generate paper figures
 # ================================================================
 echo "================================================================"
-echo "步骤6: 生成论文图表"
+echo "Step 6: Generate paper figures"
 echo "================================================================"
-echo "将生成5张关键图表 (基于快速测试数据):"
+echo "Generating 5 key figures (based on quick test data):"
 echo "  1. Overall Weighted F1 Score"
 echo "  2. Overall Model Confidence"
 echo "  3. Per-class Accuracy (Vertical Layout)"
@@ -182,7 +182,7 @@ echo "  4. Model Confidence by Emotion (Vertical Layout)"
 echo "  5. Confusion Matrices 3×4 Grid"
 echo ""
 
-# 复制快速测试结果到标准位置以便绘图
+# Copy quick test results to standard location for plotting
 mkdir -p evaluation_results
 cp "$OUTPUT_DIR/rate_sweep_ESD.json" evaluation_results/ESD_evaluation_results.json
 cp "$OUTPUT_DIR/rate_sweep_IEMOCAP.json" evaluation_results/IEMOCAP_evaluation_results.json
@@ -192,43 +192,43 @@ python generate_paper_figures.py
 
 if [ $? -eq 0 ]; then
     echo ""
-    echo "✅ 图表生成完成"
+    echo "✅ Figure generation complete"
     echo ""
-    echo "生成的图表:"
+    echo "Generated figures:"
     ls -lh evaluation_results/figures/*.png
 else
     echo ""
-    echo "❌ 图表生成失败"
+    echo "❌ Figure generation failed"
     exit 1
 fi
 
 # ================================================================
-# 完成总结
+# Completion summary
 # ================================================================
 echo ""
 echo "================================================================"
-echo "🎉 快速测试完成！"
+echo "🎉 Quick test complete!"
 echo "================================================================"
 echo ""
-echo "📁 生成的文件:"
-echo "   快速测试数据:   data_subset_quick/"
-echo "   快速测试结果:   evaluation_results_quick/"
-echo "   论文图表:       evaluation_results/figures/"
+echo "📁 Generated files:"
+echo "   Quick test data:    data_subset_quick/"
+echo "   Quick test results: evaluation_results_quick/"
+echo "   Paper figures:      evaluation_results/figures/"
 echo ""
-echo "📊 关键图表:"
+echo "📊 Key figures:"
 for fig in evaluation_results/figures/*.png; do
     if [ -f "$fig" ]; then
         echo "   - $(basename "$fig")"
     fi
 done
 echo ""
-echo "⚠️  提醒: 这是10样本的快速测试结果"
+echo "⚠️  Reminder: These are 10-sample quick test results"
 echo ""
-echo "下一步："
-echo "  1. 检查流程和图表是否正常"
-echo "  2. 运行100样本测试: bash reproduce_test_pipeline.sh"
-echo "  3. 运行完整实验: bash reproduce_full_pipeline.sh"
+echo "Next steps:"
+echo "  1. Check if workflow and figures are normal"
+echo "  2. Run 100-sample test: bash reproduce_test_pipeline.sh"
+echo "  3. Run full experiment: bash reproduce_full_pipeline.sh"
 echo ""
-echo "完成时间: $(date)"
+echo "Completion time: $(date)"
 echo "================================================================"
 

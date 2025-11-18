@@ -1,6 +1,6 @@
 """
-数据集抽象层 - 面向对象设计
-支持灵活的情感标签映射和过滤
+Dataset abstraction layer - Object-oriented design
+Support flexible emotion labels mapping and filtering
 """
 
 from .base_dataset import EmotionDataset

@@ -11,12 +11,12 @@
 #SBATCH --output=/data/gpfs/projects/punim2341/haoguangzhou/logs/train_rvq_%j.out
 #SBATCH --error=/data/gpfs/projects/punim2341/haoguangzhou/logs/train_rvq_%j.err
 
-# 加载本地配置（用户需要根据 local_config.sh.example 创建）
+# Load local configuration (user needs to create based on local_config.sh.example)
 if [ -f ./local_config.sh ]; then
     source ./local_config.sh
 fi
 
-# 加载模块
+# Load modules
 module purge
 module load GCCcore/11.3.0
 module load Python/3.10.4
@@ -24,25 +24,25 @@ module load GCC/11.3.0
 module load CUDA/11.8.0
 module load cuDNN/8.7.0.84-CUDA-11.8.0
 
-# 激活虚拟环境（如果配置了）
+# Activate virtual environment (if configured)
 if [ -n "$VENV_PATH" ] && [ -f "$VENV_PATH/bin/activate" ]; then
     source "$VENV_PATH/bin/activate"
 fi
 
-# 进入项目目录
+# Enter project directory
 PROJECT_DIR="/data/gpfs/projects/punim2341/haoguangzhou/voice/my-research/to_ready/MyAudioResearchModel"
 cd "$PROJECT_DIR"
 
-# 设置环境变量
+# Set environment variables
 export PROJECT_ROOT="$PROJECT_DIR"
 export PYTHONPATH=$PROJECT_ROOT:$PYTHONPATH
 
-# 运行RVQ训练
-echo "开始RVQ训练（使用100h中英文数据）..."
-echo "时间: $(date)"
+# Run RVQ training
+echo "Starting RVQ training (using 100h Chinese-English data)..."
+echo "Time: $(date)"
 
 python train_rvq.py
 
-echo "训练完成！"
-echo "时间: $(date)"
+echo "Training complete!"
+echo "Time: $(date)"
 

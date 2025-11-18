@@ -11,93 +11,93 @@
 #SBATCH --output=logs/test_env_%j.out
 #SBATCH --error=logs/test_env_%j.err
 
-# 严格的环境测试脚本
-# 从零开始：创建虚拟环境、安装依赖、验证环境
+# Strict environment test script
+# From scratch: create virtual environment, install dependencies, verify environment
 
-set -e  # 遇到错误立即退出
+set -e  # Exit immediately on error
 
 echo "================================================================"
-echo "环境完整性测试（从零开始）"
+echo "Environment integrity test (from scratch)"
 echo "================================================================"
 echo "Job ID: $SLURM_JOB_ID"
 echo "Node: $SLURMD_NODENAME"
 echo "Date: $(date)"
 echo ""
 
-# 创建日志目录
+# Create log directory
 mkdir -p logs
 
-# 定义虚拟环境路径
+# Define virtual environment path
 VENV_PATH="./test_venv_${SLURM_JOB_ID}"
 
-# 清理可能存在的旧测试环境
+# Clean up possible old test environment
 if [ -d "$VENV_PATH" ]; then
-    echo "删除旧的测试环境: $VENV_PATH"
+    echo "Removing old test environment: $VENV_PATH"
     rm -rf "$VENV_PATH"
 fi
 
-# 显示系统信息
-echo "系统信息："
+# Display system information
+echo "System information:"
 echo "  Python: $(which python3) ($(python3 --version))"
 echo "  Pip: $(which pip3)"
 echo "  Working directory: $(pwd)"
 echo ""
 
-# 检查GPU
-echo "GPU信息："
+# Check GPU
+echo "GPU information:"
 if command -v nvidia-smi &> /dev/null; then
     nvidia-smi --query-gpu=index,name,memory.total,memory.free --format=csv,noheader
 else
-    echo "⚠️  nvidia-smi 不可用"
+    echo "⚠️  nvidia-smi not available"
 fi
 
 echo ""
 echo "================================================================"
-echo "步骤1: 创建虚拟环境"
+echo "Step 1: Create virtual environment"
 echo "================================================================"
 
 python3 -m venv "$VENV_PATH"
 if [ $? -ne 0 ]; then
-    echo "❌ 虚拟环境创建失败"
+    echo "❌ Virtual environment creation failed"
     exit 1
 fi
 
-echo "✅ 虚拟环境已创建: $VENV_PATH"
+echo "✅ Virtual environment created: $VENV_PATH"
 
-# 激活虚拟环境
+# Activate virtual environment
 source "$VENV_PATH/bin/activate"
 
-echo "✅ 虚拟环境已激活"
+echo "✅ Virtual environment activated"
 echo "  Python: $(which python)"
 echo "  Pip: $(which pip)"
 echo ""
 
 echo "================================================================"
-echo "步骤2: 升级pip"
+echo "Step 2: Upgrade pip"
 echo "================================================================"
 
 pip install --upgrade pip setuptools wheel
-echo "✅ Pip已升级"
+echo "✅ Pip upgraded"
 echo ""
 
 echo "================================================================"
-echo "步骤3: 安装依赖（从requirements.txt）"
+echo "Step 3: Install dependencies (from requirements.txt)"
 echo "================================================================"
 
 pip install -r requirements.txt
 
 if [ $? -ne 0 ]; then
-    echo "❌ 依赖安装失败"
+    echo "❌ Dependency installation failed"
     deactivate
     rm -rf "$VENV_PATH"
     exit 1
 fi
 
-echo "✅ 所有依赖已安装"
+echo "✅ All dependencies installed"
 echo ""
 
 echo "================================================================"
-echo "步骤4: 运行依赖检查脚本"
+echo "Step 4: Run dependency check script"
 echo "================================================================"
 
 python test_dependencies.py
@@ -106,42 +106,42 @@ TEST_RESULT=$?
 
 echo ""
 echo "================================================================"
-echo "步骤5: 清理测试环境"
+echo "Step 5: Clean up test environment"
 echo "================================================================"
 
-# 停用虚拟环境
+# Deactivate virtual environment
 deactivate
 
-# 删除测试虚拟环境
-echo "删除测试环境: $VENV_PATH"
+# Delete test virtual environment
+echo "Removing test environment: $VENV_PATH"
 rm -rf "$VENV_PATH"
 
-echo "✅ 测试环境已清理"
+echo "✅ Test environment cleaned up"
 echo ""
 
 echo "================================================================"
-echo "测试结果总结"
+echo "Test result summary"
 echo "================================================================"
 
 if [ $TEST_RESULT -eq 0 ]; then
-    echo "✅ 环境测试完全通过！"
+    echo "✅ Environment test fully passed!"
     echo ""
-    echo "所有依赖包可以正确安装和导入。"
+    echo "All dependency packages can be correctly installed and imported."
     echo ""
-    echo "下一步："
-    echo "  1. 在您的工作环境中安装依赖："
+    echo "Next steps:"
+    echo "  1. Install dependencies in your working environment:"
     echo "     pip install -r requirements.txt"
     echo ""
-    echo "  2. 运行快速测试："
+    echo "  2. Run quick test:"
     echo "     sbatch scripts/test_reproduce.slurm"
     echo ""
-    echo "  3. 运行完整实验："
+    echo "  3. Run full experiment:"
     echo "     sbatch scripts/run_full_reproduce.slurm"
     exit 0
 else
-    echo "❌ 依赖检查失败"
+    echo "❌ Dependency check failed"
     echo ""
-    echo "虽然依赖包安装成功，但某些包无法正确导入。"
-    echo "请检查日志: logs/test_env_${SLURM_JOB_ID}.out"
+    echo "Although dependency packages installed successfully, some packages cannot be imported correctly."
+    echo "Please check logs: logs/test_env_${SLURM_JOB_ID}.out"
     exit 1
 fi

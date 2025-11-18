@@ -1,6 +1,6 @@
 """
-数据加载器 - 最小版
-支持加载 emotion2vec 特征和情感标签
+data loader - Minimal Version
+Support loading emotion2vec featuresandemotion labels
 """
 
 import torch
@@ -16,20 +16,20 @@ logger = logging.getLogger(__name__)
 
 def _worker_init_fn(worker_id):
     """
-    DataLoader worker 初始化函数
-    确保多进程下的随机性可控且不冲突
+    DataLoader worker initialization function
+    Ensure controlled randomness in multiprocessing without conflicts
     """
-    # 获取PyTorch的随机种子
+    # Get PyTorch random seed
     worker_seed = torch.initial_seed() % 2**32
     
-    # 设置numpy和python的随机种子
+    # Set numpy and python random seed
     np.random.seed(worker_seed)
     random.seed(worker_seed)
 
 
 class EmotionDataset(Dataset):
     """
-    emotion2vec 帧级特征 + 情感标签数据集
+    emotion2vec frame-level features + emotion labels dataset
     """
     
     def __init__(
@@ -49,18 +49,18 @@ class EmotionDataset(Dataset):
     ):
         """
         Args:
-            data_dir: 数据目录（如 emilia_vevo_training_50h）
-            max_samples: 最大样本数（用于快速测试）
-            max_frames: 最大帧数（截断）
-            min_frames: 最小帧数（过滤）
-            feature_dim: 特征维度（默认 768）
-            supported_languages: 支持的语言列表（默认 ['EN', 'ZH']）
-            normalize: 是否归一化特征
-            mean_std_path: 归一化参数路径
-            feature_suffix: 特征文件后缀
-            label_suffix: 标签文件后缀
-            emotion_label_map: 情感标签映射 {label_str: class_id}
-            seed: 随机种子
+            data_dir: data directory (e.g. emilia_vevo_training_50h)
+            max_samples: maximum number of samples (for quick testing)
+            max_frames: maximum number of frames (truncate)
+            min_frames: minimum number of frames (filter)
+            feature_dim: feature dimension (default 768)
+            supported_languages: supported language list (default ['EN', 'ZH'])
+            normalize: whether to normalize features
+            mean_std_path: normalization parameters path
+            feature_suffix: features file suffix
+            label_suffix: label file suffix
+            emotion_label_map: emotion labels mapping {label_str: class_id}
+            seed: random seed
         """
         self.data_dir = Path(data_dir)
         self.max_frames = max_frames
@@ -70,69 +70,69 @@ class EmotionDataset(Dataset):
         self.feature_suffix = feature_suffix
         self.label_suffix = label_suffix
         
-        # 情感标签映射（支持别名和大小写不敏感）
+        # Emotion labels mapping (support aliases and case insensitive)
         if emotion_label_map is None:
-            # 默认映射（5类，兼容ESD）
+            # Default mapping (5 classes, compatible with ESD)
             self.emotion_label_map = {
                 'angry': 0, 'anger': 0, 'ang': 0,
                 'happy': 1, 'happiness': 1, 'excited': 1, 'hap': 1,
-                'neutral': 2, 'neu': 2, 'frustrated': 2,  # 与 DataConfig 保持一致
+                'neutral': 2, 'neu': 2, 'frustrated': 2,  # keep consistent with DataConfig
                 'sad': 3, 'sadness': 3,
                 'surprise': 4, 'surprised': 4, 'sur': 4,
             }
         else:
             self.emotion_label_map = emotion_label_map
         
-        self.unknown_labels_count = 0  # 统计未知标签数
+        self.unknown_labels_count = 0  # Count unknown labels
         
-        # 特征归一化参数
+        # Features normalization parameters
         self.mean = None
         self.std = None
         if normalize and mean_std_path and Path(mean_std_path).exists():
             data = np.load(mean_std_path)
             self.mean = torch.from_numpy(data['mean']).float()  # (768,)
             self.std = torch.from_numpy(data['std']).float().clamp_min(1e-5)
-            logger.info(f"✅ 加载归一化参数: {mean_std_path}")
+            logger.info(f"✅ Loaded normalization parameters: {mean_std_path}")
         elif normalize and not mean_std_path:
-            logger.warning("⚠️ normalize_features=True 但未设置 mean_std_path")
-            logger.warning("   将跳过归一化。请先运行 compute_normalization.py 并设置路径。")
+            logger.warning("⚠️ normalize_features=True but mean_std_path not set")
+            logger.warning("   Skipping normalization. Please run compute_normalization.py first and set path.")
         elif normalize and mean_std_path and not Path(mean_std_path).exists():
-            logger.warning(f"⚠️ normalize_features=True 但文件不存在: {mean_std_path}")
-            logger.warning("   将跳过归一化。")
+            logger.warning(f"⚠️ normalize_features=True but file does not exist: {mean_std_path}")
+            logger.warning("   Skipping normalization.")
         
-        # 收集所有特征文件并缓存长度
+        # Collect all features files and cache lengths
         self.feature_files = []
-        self.lengths = []  # 缓存每个样本的帧长
+        self.lengths = []  # Cache frame length per sample
         
         if supported_languages is None:
-            # 无语言子目录，递归搜索整个data_dir
+            # No language subdirectory, recursively search entire data_dir
             frame_files = sorted(self.data_dir.rglob(f"*{self.feature_suffix}"))
             self.feature_files.extend(frame_files)
         else:
-            # 有语言子目录
+            # Has language subdirectory
             for lang in supported_languages:
                 lang_dir = self.data_dir / lang
                 if not lang_dir.exists():
-                    logger.warning(f"目录不存在: {lang_dir}")
+                    logger.warning(f"Directory does not exist: {lang_dir}")
                     continue
                 
-                # 帧级特征文件
+                # Frame-level features files
                 frame_files = sorted(lang_dir.glob(f"*{self.feature_suffix}"))
                 self.feature_files.extend(frame_files)
         
         if len(self.feature_files) == 0:
-            raise ValueError(f"未找到任何特征文件（后缀={self.feature_suffix}）: {data_dir}")
+            raise ValueError(f"No features files found (suffix={self.feature_suffix}): {data_dir}")
         
-        # 过滤：检查帧数范围并缓存长度（超长样本保留，截断在__getitem__中处理）
+        # Filter: Check frame count range and cache length (keep overlong samples, truncate in __getitem__)
         valid_files = []
         valid_lengths = []
         for fpath in self.feature_files:
             try:
-                feat = np.load(fpath, mmap_mode='r')  # 内存映射，避免读入整个数组
+                feat = np.load(fpath, mmap_mode='r')  # memory mapping, avoid reading entire array
                 T = feat.shape[0]
-                if T >= self.min_frames:  # 只按下限过滤
+                if T >= self.min_frames:  # only filter by lower limit
                     valid_files.append(fpath)
-                    # 分桶用的长度：截断到max_frames，与实际batch长度一致
+                    # Bucketing length: truncate to max_frames, consistent with actual batch length
                     valid_lengths.append(min(T, self.max_frames))
             except:
                 continue
@@ -140,76 +140,76 @@ class EmotionDataset(Dataset):
         self.feature_files = valid_files
         self.lengths = valid_lengths
         
-        # 洗牌（固定随机种子）- 对文件和长度同步洗牌
+        # Shuffle (fixed random seed) - shuffle file and length synchronously
         np.random.seed(seed)
         perm = np.random.permutation(len(self.feature_files))
         self.feature_files = [self.feature_files[i] for i in perm]
         self.lengths = [self.lengths[i] for i in perm]
         
-        # 限制样本数
+        # Limit sample count
         if max_samples is not None:
             self.feature_files = self.feature_files[:max_samples]
             self.lengths = self.lengths[:max_samples]
         
-        logger.info(f"✅ EmotionDataset: {len(self.feature_files)} 个样本")
+        logger.info(f"✅ EmotionDataset: {len(self.feature_files)} samples")
     
     def __len__(self):
         return len(self.feature_files)
     
     def get_length(self, idx: int) -> int:
-        """获取样本长度（用于分桶采样器，避免二次IO）"""
+        """Get sample length (for bucket sampler, avoid second IO)"""
         return int(self.lengths[idx])
     
     def __getitem__(self, idx) -> Dict[str, torch.Tensor]:
         """
-        返回:
+        Returns:
             {
-                'features': (T, 768) emotion2vec 帧级特征
-                'label': (1,) 情感标签（如果有）
-                'length': (1,) 实际帧数
+                'features': (T, 768) emotion2vec frame-level features
+                'label': (1,) emotion labels (if available)
+                'length': (1,) actual frame count
             }
         """
         feature_file = self.feature_files[idx]
         
         try:
-            # 加载特征（内存映射，避免读入整个数组）
-            arr = np.load(feature_file)  # (T, 768) - 不使用内存映射以提高性能
+            # Load features (memory mapping, avoid reading entire array)
+            arr = np.load(feature_file)  # (T, 768) - Not using memory mapping to improve performance
             T = arr.shape[0]
 
-            # 截断或填充
+            # Truncate or pad
             if T > self.max_frames:
-                # 随机截取
+                # Random crop
                 start = np.random.randint(0, T - self.max_frames + 1)
-                arr = arr[start:start + self.max_frames]  # 先切片
+                arr = arr[start:start + self.max_frames]  # slice first
                 T = self.max_frames
 
             features = torch.from_numpy(np.array(arr, copy=True)).float()
             
-            # 特征归一化
+            # Features normalization
             if self.normalize and self.mean is not None and self.std is not None:
                 features = (features - self.mean) / self.std
             
-            # 尝试加载情感标签（如果存在）- 使用统一映射
+            # Try to load emotion labels (if exists) - use unified mapping
             label_file = feature_file.with_name(
                 feature_file.name.replace(self.feature_suffix, self.label_suffix)
             )
             if label_file.exists():
                 with open(label_file, 'r') as f:
-                    label_str = f.read().strip().lower()  # 转小写
+                    label_str = f.read().strip().lower()  # to lowercase
                     
-                    # 使用统一的映射（支持别名）
+                    # Use unified mapping (support aliases)
                     if label_str in self.emotion_label_map:
                         label_id = self.emotion_label_map[label_str]
                     else:
-                        # 未知标签：记录并使用neutral
+                        # Unknown label: record and use neutral
                         self.unknown_labels_count += 1
                         label_id = 2  # Neutral
-                        if self.unknown_labels_count <= 10:  # 只打印前10个
-                            logger.warning(f"未知情感标签: '{label_str}' 在文件 {feature_file.name}，使用Neutral")
+                        if self.unknown_labels_count <= 10:  # only print first 10
+                            logger.warning(f"Unknown emotion label: '{label_str}' in file {feature_file.name}, using Neutral")
                     
                     label = torch.tensor([label_id], dtype=torch.long)
             else:
-                label = torch.tensor([2], dtype=torch.long)  # 默认Neutral
+                label = torch.tensor([2], dtype=torch.long)  # default Neutral
             
             return {
                 'features': features,  # (T, 768)
@@ -218,8 +218,8 @@ class EmotionDataset(Dataset):
             }
         
         except Exception as e:
-            logger.error(f"加载失败: {feature_file}, 错误: {e}")
-            # 返回零向量作为fallback
+            logger.error(f"Load failed: {feature_file}, Error: {e}")
+            # Return zero vector as fallback
             return {
                 'features': torch.zeros(self.min_frames, self.feature_dim, dtype=torch.float32),
                 'label': torch.tensor([2], dtype=torch.long),
@@ -229,23 +229,23 @@ class EmotionDataset(Dataset):
 
 def collate_fn(batch):
     """
-    处理变长序列：padding
+    Handle variable-length sequences: padding
     
     Args:
         batch: List of dicts
     
     Returns:
         {
-            'features': (B, T_max, 768) 填充后的特征
-            'labels': (B,) 情感标签
-            'lengths': (B,) 实际长度
+            'features': (B, T_max, 768) padded features
+            'labels': (B,) emotion labels
+            'lengths': (B,) actual lengths
         }
     """
-    # 获取最大长度和 dtype
+    # Get max length and dtype
     lengths = torch.cat([item['length'] for item in batch])
     max_len = lengths.max().item()
     feature_dim = batch[0]['features'].shape[1]
-    dtype = batch[0]['features'].dtype  # 保留原始 dtype
+    dtype = batch[0]['features'].dtype  # preserve original dtype
     
     # Padding
     batch_size = len(batch)
@@ -271,19 +271,19 @@ def create_dataloaders(
     num_buckets: int = 10
 ) -> Tuple[DataLoader, DataLoader]:
     """
-    创建训练和验证数据加载器
+    Create training and validation data loaders
     
     Args:
-        data_config: DataConfig实例
-        training_config: TrainingConfig实例
-        rvq_config: GroupedRVQConfig实例
-        use_bucketing: 是否使用长度分桶（减少padding）
-        num_buckets: 桶的数量
+        data_config: DataConfig instance
+        training_config: TrainingConfig instance
+        rvq_config: GroupedRVQConfig instance
+        use_bucketing: whether to use length bucketing (reduce padding)
+        num_buckets: number of buckets
     
     Returns:
         train_loader, val_loader
     """
-    # 创建完整数据集
+    # Create full dataset
     full_dataset = EmotionDataset(
         data_dir=data_config.train_data_path,
         max_samples=data_config.max_samples,
@@ -295,44 +295,44 @@ def create_dataloaders(
         mean_std_path=data_config.mean_std_path,
         feature_suffix=data_config.feature_suffix,
         label_suffix=data_config.label_suffix,
-        emotion_label_map=data_config.emotion_label_map,  # 使用统一的标签映射
+        emotion_label_map=data_config.emotion_label_map,  # use unified label mapping
         seed=data_config.seed
     )
     
-    # 计算分割大小
+    # Calculate split size
     total_size = len(full_dataset)
     train_size = int(data_config.train_split * total_size)
     val_size = total_size - train_size
     
-    # 分割数据集
+    # Split dataset
     train_dataset, val_dataset = random_split(
         full_dataset,
         [train_size, val_size],
         generator=torch.Generator().manual_seed(data_config.seed)
     )
     
-    logger.info(f"✅ 训练集: {len(train_dataset)} 个样本")
-    logger.info(f"✅ 验证集: {len(val_dataset)} 个样本")
+    logger.info(f"✅ Training set: {len(train_dataset)} samples")
+    logger.info(f"✅ Validation set: {len(val_dataset)} samples")
     
-    # DataLoader 通用参数（避免 prefetch_factor=None 在单进程时报错）
+    # DataLoader common parameters (avoid prefetch_factor=None error in single process)
     persistent_workers = training_config.num_workers > 0
     
-    # 构建通用 kwargs
+    # Build common kwargs
     common_kwargs = {
         'num_workers': training_config.num_workers,
-        'pin_memory': training_config.pin_memory and torch.cuda.is_available(),  # 只有 CUDA 场景下才有收益
+        'pin_memory': training_config.pin_memory and torch.cuda.is_available(),  # only beneficial in CUDA scenario
         'collate_fn': collate_fn,
         'worker_init_fn': _worker_init_fn if training_config.num_workers > 0 else None,
         'persistent_workers': persistent_workers,
     }
     
-    # 只在多进程时添加 prefetch_factor
+    # Only add prefetch_factor in multiprocessing
     if persistent_workers:
-        common_kwargs['prefetch_factor'] = 2  # 视 I/O 能力可调到 3
+        common_kwargs['prefetch_factor'] = 2  # can adjust to 3 based on I/O capability
     
-    # 创建数据加载器
+    # Create data loader
     if use_bucketing:
-        # 使用长度分桶采样器
+        # Use Bucket Batch Sampler
         try:
             from .bucket_sampler import BucketBatchSampler
         except ImportError:
@@ -353,9 +353,9 @@ def create_dataloaders(
             **common_kwargs
         )
         
-        logger.info(f"✅ 使用长度分桶采样器 (num_buckets={num_buckets})")
+        logger.info(f"✅ Using Bucket Batch Sampler (num_buckets={num_buckets})")
     else:
-        # 标准DataLoader
+        # Standard DataLoader
         train_loader = DataLoader(
             train_dataset,
             batch_size=training_config.batch_size,
@@ -364,7 +364,7 @@ def create_dataloaders(
             **common_kwargs
         )
     
-    # 验证集不需要分桶
+    # Validation set doesn't need bucketing
     val_loader = DataLoader(
         val_dataset,
         batch_size=training_config.batch_size,

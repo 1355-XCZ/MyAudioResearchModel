@@ -1,6 +1,6 @@
 """
-方法2: 层数扫描评估
-通过控制使用的量化层数，评估emotion2vec分类性能
+Method 2: Layer Sweep Evaluation
+Evaluate emotion2vec classification performance by controlling the number of quantization layers used
 """
 
 import torch
@@ -17,41 +17,41 @@ logger = logging.getLogger(__name__)
 
 def layer_sweep_evaluation(
     rvq_model,
-    dataset,  # EmotionDataset实例
+    dataset,  # EmotionDataset instance
     num_layers_list: List[int],
-    classifier,  # EmotionClassifierV2实例
+    classifier,  # EmotionClassifierV2 instance
     output_dir: str,
     device: str = 'cuda'
 ) -> Dict:
     """
-    层数扫描评估主函数
+    Layer sweep evaluation main function
     
-    与emotion_information_bottleneck类似，但使用分组RVQ
+    Similar to emotion_information_bottleneck, but uses grouped RVQ
     
     Args:
-        rvq_model: 训练好的GroupedRVQ模型
-        dataset: EmotionDataset实例
-        num_layers_list: 使用的层数列表（总层数=12组×3层=36）
-        classifier: emotion2vec分类器
-        output_dir: 输出目录
-        device: 设备
+        rvq_model: trained GroupedRVQ model
+        dataset: EmotionDataset instance
+        num_layers_list: list of layer numbers to use (total layers = 12 groups × 3 layers = 36)
+        classifier: emotion2vec classifier
+        output_dir: output directory
+        device: device
     
     Returns:
-        results: 评估结果字典
+        results: evaluation results dictionary
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     
     rvq_model.eval()
     
-    # 获取情感映射
+    # Get emotion mapping
     emotion_mapping = dataset.get_emotion_mapping()
     
-    logger.info(f"开始层数扫描评估: {dataset.name}")
-    logger.info(f"  层数列表: {num_layers_list}")
-    logger.info(f"  样本数: {len(dataset)}")
+    logger.info(f"Starting layer sweep evaluation: {dataset.name}")
+    logger.info(f"  Layer list: {num_layers_list}")
+    logger.info(f"  Number of samples: {len(dataset)}")
     
-    # 结果存储
+    # Results storage
     results = {
         'dataset': dataset.name,
         'num_layers_list': num_layers_list,
@@ -59,26 +59,26 @@ def layer_sweep_evaluation(
         'layer_points': {}
     }
     
-    # 加载样本
+    # Load samples
     if not dataset.samples:
         dataset.samples = dataset.load_samples()
     
-    # 总层数
+    # Total layers
     total_layers = rvq_model.num_groups * rvq_model.config.num_fine_layers
     
-    logger.info(f"样本总数: {len(dataset.samples)}")
-    logger.info(f"总层数: {total_layers}")
+    logger.info(f"Total samples: {len(dataset.samples)}")
+    logger.info(f"Total layers: {total_layers}")
     
-    # 对每个层数进行评估
-    for num_layers in tqdm(num_layers_list, desc="层数点"):
+    # Evaluate for each layer number
+    for num_layers in tqdm(num_layers_list, desc="Layer points"):
         if num_layers > total_layers:
-            logger.warning(f"层数 {num_layers} 超过总层数 {total_layers}，跳过")
+            logger.warning(f"Layer number {num_layers} exceeds total layers {total_layers}, skipping")
             continue
         
         logger.info(f"\n{'='*60}")
-        logger.info(f"使用层数: {num_layers}/{total_layers}")
+        logger.info(f"Using layers: {num_layers}/{total_layers}")
         
-        # 初始化这个层数点的结果
+        # Initialize results for this layer point
         layer_results = {
             'num_layers': num_layers,
             'predictions': [],
@@ -86,28 +86,28 @@ def layer_sweep_evaluation(
             'confidences': [],
         }
         
-        # 对每个样本进行量化和分类
-        for sample in tqdm(dataset.samples, desc=f"样本 @ {num_layers}层"):
+        # Quantize and classify for each sample
+        for sample in tqdm(dataset.samples, desc=f"Samples @ {num_layers} layers"):
             audio_path = sample['audio_path']
             emotion_original = sample['emotion']
             
-            # 映射情感标签
+            # Map emotion label
             emotion_ev2 = dataset.map_emotion_to_ev2(emotion_original)
             
-            # 加载特征
+            # Load features
             features_path = audio_path.replace('.wav', '_ev2_frame.npy')
             
             if not Path(features_path).exists():
-                logger.warning(f"特征文件不存在，跳过: {features_path}")
+                logger.warning(f"Features file does not exist, skipping: {features_path}")
                 continue
             
             try:
                 features = np.load(features_path)  # (T, 768)
                 features_tensor = torch.from_numpy(features).unsqueeze(0).to(device)  # (1, T, 768)
                 
-                # 使用指定层数进行量化（不使用ECVQ，直接量化）
+                # Quantize with specified number of layers (not using ECVQ, direct quantization)
                 with torch.no_grad():
-                    # 禁用ECVQ，直接重建
+                    # Disable ECVQ, direct reconstruction
                     quantized = quantize_with_num_layers(
                         rvq_model,
                         features_tensor,
@@ -115,25 +115,25 @@ def layer_sweep_evaluation(
                         device
                     )
                 
-                # 使用emotion2vec分类量化后的特征
+                # Classify quantized features using emotion2vec
                 quantized_np = quantized[0].cpu().numpy()  # (T, 768)
                 
-                # 调用分类器
+                # Call classifier
                 result = classifier.classify_from_features(
                     quantized_np,
                     esd_ground_truth=emotion_ev2
                 )
                 
-                # 记录结果
+                # Record results
                 layer_results['predictions'].append(result['ev2_predicted'])
                 layer_results['ground_truths'].append(emotion_ev2)
                 layer_results['confidences'].append(result['ev2_confidence'])
                 
             except Exception as e:
-                logger.error(f"处理样本失败: {audio_path}, 错误: {e}")
+                logger.error(f"Failed to process sample: {audio_path}, Error: {e}")
                 continue
         
-        # 计算这个层数点的统计指标
+        # Calculate statistics for this layer point
         if len(layer_results['predictions']) > 0:
             predictions = np.array(layer_results['predictions'])
             ground_truths = np.array(layer_results['ground_truths'])
@@ -145,47 +145,47 @@ def layer_sweep_evaluation(
             layer_results['accuracy'] = float(accuracy)
             layer_results['avg_confidence'] = float(avg_confidence)
             
-            logger.info(f"  准确率: {accuracy:.4f}")
-            logger.info(f"  平均置信度: {avg_confidence:.4f}")
+            logger.info(f"  Accuracy: {accuracy:.4f}")
+            logger.info(f"  Average confidence: {avg_confidence:.4f}")
         
-        # 保存这个层数点的结果
+        # Save results for this layer point
         results['layer_points'][f'{num_layers}_layers'] = layer_results
     
-    # 保存完整结果
+    # Save complete results
     output_file = output_dir / f'layer_sweep_{dataset.name}.json'
-    os.makedirs(output_file.parent, exist_ok=True)  # 确保目录存在
+    os.makedirs(output_file.parent, exist_ok=True)  # Ensure directory exists
     with open(output_file, 'w') as f:
         json.dump(results, f, indent=2)
     
-    logger.info(f"\n✅ 层数扫描评估完成: {dataset.name}")
-    logger.info(f"  结果已保存: {output_file}")
+    logger.info(f"\n✅ Layer sweep evaluation complete: {dataset.name}")
+    logger.info(f"  Results saved: {output_file}")
     
     return results
 
 
 def quantize_with_num_layers(rvq_model, features, num_layers, device):
     """
-    使用指定层数进行量化（辅助函数）
+    Quantize with specified number of layers (helper function)
     
-    实现方式：
-    1. 使用RVQ正常量化
-    2. 只使用前num_layers层的码字进行重建
+    Implementation:
+    1. Use RVQ to quantize normally
+    2. Only use first num_layers layers for reconstruction
     
     Args:
-        rvq_model: GroupedRVQ模型
-        features: (B, T, 768) 特征
-        num_layers: 使用的层数
-        device: 设备
+        rvq_model: GroupedRVQ model
+        features: (B, T, 768) features
+        num_layers: number of layers to use
+        device: device
     
     Returns:
-        quantized: (B, T, 768) 量化后的特征
+        quantized: (B, T, 768) quantized features
     """
     B, T, D = features.shape
     
-    # 重塑为分组形式
+    # Reshape to grouped form
     features_grouped = features.view(B, T, rvq_model.num_groups, rvq_model.group_dim)
     
-    # 逐组量化（只使用前num_layers_per_group层）
+    # Quantize per group (only use first num_layers_per_group layers)
     total_layers = rvq_model.num_groups * rvq_model.config.num_fine_layers
     layers_per_group = num_layers // rvq_model.num_groups
     remaining_layers = num_layers % rvq_model.num_groups
@@ -193,7 +193,7 @@ def quantize_with_num_layers(rvq_model, features, num_layers, device):
     reconstructed_grouped = torch.zeros_like(features_grouped)
     
     for g in range(rvq_model.num_groups):
-        # 确定这个组使用多少层
+        # Determine how many layers to use for this group
         if g < remaining_layers:
             group_layers = layers_per_group + 1
         else:
@@ -201,22 +201,23 @@ def quantize_with_num_layers(rvq_model, features, num_layers, device):
         
         group_layers = min(group_layers, rvq_model.config.num_fine_layers)
         
-        # 残差量化
+        # Residual quantization
         residual = features_grouped[:, :, g, :]  # (B, T, group_dim)
         
         for m in range(group_layers):
-            # 量化
+            # Quantize
             vq = rvq_model.fine_vqs[g][m]
             quantized_layer, indices, commit_loss = vq(residual)
             
-            # 累加
+            # Accumulate
             reconstructed_grouped[:, :, g, :] += quantized_layer
             
-            # 更新残差
+            # Update residual
             residual = residual - quantized_layer
     
-    # 重塑回原始形状
+    # Reshape back to original form
     quantized = reconstructed_grouped.view(B, T, D)
     
     return quantized
+
 

@@ -69,14 +69,14 @@ temp_scripts/
 temp_files/
 temp_plots/
 
-# data_subset目录：评估子集（提供给评审员，需要提交到Git）
-# 已包含随机抽取的1600个样本（seed=42）
-# 必须在忽略规则之前声明例外
+# data_subset directory: evaluation subset (provided for reviewers, should be committed)
+# Contains 1600 randomly sampled samples (seed=42)
+# Exception must be declared before ignore rules
 !data_subset/
 
 # Data files (too large for git)
-# 不使用 *.npy 以便data_subset可以被跟踪
-# 改为忽略特定目录
+# Not using *.npy to allow data_subset to be tracked
+# Instead ignore specific directories
 data/
 !data_subset/
 checkpoints/*.npy

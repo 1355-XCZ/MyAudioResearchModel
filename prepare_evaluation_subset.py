@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-准备评估子集数据
+Prepare evaluation subset data
 
-从完整数据集中随机抽取指定数量的样本，用于论文实验复现
-- 每个情感类别随机抽取100个样本
-- 保持数据平衡
-- 可设置随机种子以确保可复现性
+Randomly sample specified number of samples from complete dataset for paper experiment reproduction
+- Randomly sample 100 samples per emotion category
+- Keep data balanced
+- Can set random seed to ensure reproducibility
 """
 
 import os
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 def collect_samples_by_emotion(data_root: Path, dataset_name: str):
     """
-    收集数据集中按情感分类的所有样本
+    Collect all samples classified by emotion in dataset
     
     Returns:
         dict: {emotion: [sample_paths]}
@@ -36,7 +36,7 @@ def collect_samples_by_emotion(data_root: Path, dataset_name: str):
     samples_by_emotion = defaultdict(list)
     
     if dataset_name == 'ESD':
-        # ESD结构: data_root/speaker_id/emotion/xxx_ev2_frame.npy
+        # ESD structure: data_root/speaker_id/emotion/xxx_ev2_frame.npy
         for feat_file in data_root.glob("**/*_ev2_frame.npy"):
             label_file = feat_file.parent / (feat_file.stem.replace('_ev2_frame', '_emotion') + '.txt')
             
@@ -46,7 +46,7 @@ def collect_samples_by_emotion(data_root: Path, dataset_name: str):
             with open(label_file) as f:
                 emotion = f.read().strip()
             
-            # 标准化情感标签
+            # Normalize emotion labels
             emotion_normalized = emotion.lower()
             if emotion_normalized == 'surprise':
                 emotion_normalized = 'surprised'
@@ -58,7 +58,7 @@ def collect_samples_by_emotion(data_root: Path, dataset_name: str):
             })
     
     elif dataset_name == 'IEMOCAP':
-        # IEMOCAP结构: data_root/SessionX/xxx_ev2_frame.npy
+        # IEMOCAP structure: data_root/SessionX/xxx_ev2_frame.npy
         for feat_file in data_root.glob("**/*_ev2_frame.npy"):
             label_file = feat_file.parent / (feat_file.stem.replace('_ev2_frame', '_emotion') + '.txt')
             
@@ -76,7 +76,7 @@ def collect_samples_by_emotion(data_root: Path, dataset_name: str):
             })
     
     elif dataset_name == 'RAVDESS':
-        # RAVDESS结构: data_root/xxx_ev2_frame.npy
+        # RAVDESS structure: data_root/xxx_ev2_frame.npy
         for feat_file in data_root.glob("*_ev2_frame.npy"):
             label_file = feat_file.parent / (feat_file.stem.replace('_ev2_frame', '_emotion') + '.txt')
             
@@ -98,12 +98,12 @@ def collect_samples_by_emotion(data_root: Path, dataset_name: str):
 
 def sample_subset(samples_by_emotion, samples_per_emotion: int, seed: int = 42):
     """
-    从每个情感类别中随机抽取指定数量的样本
+    Randomly sample specified number of samples from each emotion category
     
     Args:
-        samples_by_emotion: 按情感分类的样本字典
-        samples_per_emotion: 每个情感抽取的样本数
-        seed: 随机种子
+        samples_by_emotion: Samples dictionary classified by emotion
+        samples_per_emotion: Number of samples to extract per emotion
+        seed: Random seed
     
     Returns:
         dict: {emotion: [selected_samples]}
@@ -115,64 +115,64 @@ def sample_subset(samples_by_emotion, samples_per_emotion: int, seed: int = 42):
         available = len(samples)
         
         if available < samples_per_emotion:
-            logger.warning(f"⚠️  {emotion}: 可用样本不足 ({available} < {samples_per_emotion})，使用全部样本")
+            logger.warning(f"⚠️  {emotion}: Insufficient available samples ({available} < {samples_per_emotion}), using all samples")
             subset[emotion] = samples
         else:
-            # 随机抽取
+            # Random sampling
             subset[emotion] = random.sample(samples, samples_per_emotion)
-            logger.info(f"✅ {emotion}: 从{available}个样本中随机抽取{samples_per_emotion}个")
+            logger.info(f"✅ {emotion}: Randomly sampled {samples_per_emotion} from {available} samples")
     
     return subset
 
 
 def copy_subset(subset, source_root: Path, target_root: Path, dataset_name: str):
     """
-    复制子集文件到目标目录
+    Copy subset files to target directory
     
     Args:
-        subset: 选中的样本子集
-        source_root: 源数据根目录
-        target_root: 目标数据根目录
-        dataset_name: 数据集名称
+        subset: Selected samples subset
+        source_root: Source data root directory
+        target_root: Target data root directory
+        dataset_name: Dataset name
     """
     target_root.mkdir(parents=True, exist_ok=True)
     
     copied_count = 0
     
     for emotion, samples in subset.items():
-        for sample in tqdm(samples, desc=f"复制 {emotion}"):
+        for sample in tqdm(samples, desc=f"Copying {emotion}"):
             feat_file = sample['feature_file']
             label_file = sample['label_file']
             
-            # 计算相对路径
+            # Calculate relative path
             rel_path = feat_file.relative_to(source_root)
             
-            # 目标路径
+            # Target path
             target_feat = target_root / rel_path
             target_label = target_feat.parent / label_file.name
             
-            # 创建目录
+            # Create directory
             target_feat.parent.mkdir(parents=True, exist_ok=True)
             
-            # 复制文件
+            # Copy files
             shutil.copy2(feat_file, target_feat)
             shutil.copy2(label_file, target_label)
             
             copied_count += 2
     
-    logger.info(f"✅ 共复制{copied_count}个文件")
+    logger.info(f"✅ Total {copied_count} files copied")
 
 
 def save_subset_info(subset, output_file: Path, dataset_name: str, samples_per_emotion: int, seed: int):
     """
-    保存子集信息到JSON文件
+    Save subset information to JSON file
     
     Args:
-        subset: 选中的样本子集
-        output_file: 输出JSON文件路径
-        dataset_name: 数据集名称
-        samples_per_emotion: 每个情感的样本数
-        seed: 随机种子
+        subset: Selected samples subset
+        output_file: Output JSON file path
+        dataset_name: Dataset name
+        samples_per_emotion: Number of samples per emotion
+        seed: Random seed
     """
     info = {
         'dataset': dataset_name,
@@ -190,92 +190,92 @@ def save_subset_info(subset, output_file: Path, dataset_name: str, samples_per_e
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(info, f, indent=2, ensure_ascii=False)
     
-    logger.info(f"✅ 子集信息保存到: {output_file}")
+    logger.info(f"✅ Subset info saved to: {output_file}")
 
 
 def prepare_dataset_subset(dataset_name: str, source_root: str, target_root: str, 
                           samples_per_emotion: int = 100, seed: int = 42):
     """
-    准备单个数据集的评估子集
+    Prepare evaluation subset for single dataset
     
     Args:
-        dataset_name: 数据集名称 (ESD/IEMOCAP/RAVDESS)
-        source_root: 源数据根目录
-        target_root: 目标数据根目录
-        samples_per_emotion: 每个情感的样本数
-        seed: 随机种子
+        dataset_name: Dataset name (ESD/IEMOCAP/RAVDESS)
+        source_root: Source data root directory
+        target_root: Target data root directory
+        samples_per_emotion: Number of samples per emotion
+        seed: Random seed
     """
     logger.info("=" * 80)
-    logger.info(f"准备 {dataset_name} 评估子集")
+    logger.info(f"Preparing {dataset_name} evaluation subset")
     logger.info("=" * 80)
     
     source_path = Path(source_root)
     target_path = Path(target_root)
     
     if not source_path.exists():
-        logger.error(f"❌ 源数据不存在: {source_path}")
+        logger.error(f"❌ Source data does not exist: {source_path}")
         return False
     
-    # 1. 收集所有样本
-    logger.info(f"📂 扫描源数据目录: {source_path}")
+    # 1. Collect all samples
+    logger.info(f"📂 Scanning source data directory: {source_path}")
     samples_by_emotion = collect_samples_by_emotion(source_path, dataset_name)
     
     if not samples_by_emotion:
-        logger.error(f"❌ 未找到任何样本")
+        logger.error(f"❌ No samples found")
         return False
     
-    logger.info(f"✅ 找到{len(samples_by_emotion)}个情感类别:")
+    logger.info(f"✅ Found {len(samples_by_emotion)} emotion categories:")
     for emotion, samples in sorted(samples_by_emotion.items()):
-        logger.info(f"  - {emotion}: {len(samples)}个样本")
+        logger.info(f"  - {emotion}: {len(samples)} samples")
     
-    # 2. 随机抽取子集
-    logger.info(f"\n🎲 随机抽取子集 (种子={seed}, 每类{samples_per_emotion}个)")
+    # 2. Random sampling subset
+    logger.info(f"\n🎲 Random sampling subset (seed={seed}, {samples_per_emotion} per class)")
     subset = sample_subset(samples_by_emotion, samples_per_emotion, seed)
     
     total_samples = sum(len(samples) for samples in subset.values())
-    logger.info(f"✅ 子集总样本数: {total_samples}")
+    logger.info(f"✅ Total samples in subset: {total_samples}")
     
-    # 3. 复制文件
-    logger.info(f"\n📋 复制文件到: {target_path}")
+    # 3. Copy files
+    logger.info(f"\n📋 Copying files to: {target_path}")
     copy_subset(subset, source_path, target_path, dataset_name)
     
-    # 4. 保存子集信息
+    # 4. Save subset info
     info_file = target_path.parent / f"{dataset_name}_subset_info.json"
     save_subset_info(subset, info_file, dataset_name, samples_per_emotion, seed)
     
-    logger.info(f"\n✅ {dataset_name} 子集准备完成")
+    logger.info(f"\n✅ {dataset_name} subset preparation complete")
     return True
 
 
 def main():
-    parser = argparse.ArgumentParser(description='准备评估子集数据')
+    parser = argparse.ArgumentParser(description='Prepare evaluation subset data')
     parser.add_argument('--source-data', type=str, default='data',
-                       help='源数据根目录 (默认: data)')
+                       help='Source data root directory (default: data)')
     parser.add_argument('--target-data', type=str, default='data_subset',
-                       help='目标数据根目录 (默认: data_subset)')
+                       help='Target data root directory (default: data_subset)')
     parser.add_argument('--samples', type=int, default=100,
-                       help='每个情感的样本数 (默认: 100)')
+                       help='Number of samples per emotion (default: 100)')
     parser.add_argument('--seed', type=int, default=42,
-                       help='随机种子 (默认: 42)')
+                       help='Random seed (default: 42)')
     parser.add_argument('--datasets', type=str, nargs='+', 
                        default=['ESD', 'IEMOCAP', 'RAVDESS'],
-                       help='要处理的数据集 (默认: ESD IEMOCAP RAVDESS)')
+                       help='Datasets to process (default: ESD IEMOCAP RAVDESS)')
     
     args = parser.parse_args()
     
     logger.info("=" * 80)
-    logger.info("评估子集数据准备工具")
+    logger.info("Evaluation Subset Data Preparation Tool")
     logger.info("=" * 80)
-    logger.info(f"源数据目录: {args.source_data}")
-    logger.info(f"目标目录: {args.target_data}")
-    logger.info(f"每个情感样本数: {args.samples}")
-    logger.info(f"随机种子: {args.seed}")
-    logger.info(f"数据集: {', '.join(args.datasets)}")
+    logger.info(f"Source data directory: {args.source_data}")
+    logger.info(f"Target directory: {args.target_data}")
+    logger.info(f"Samples per emotion: {args.samples}")
+    logger.info(f"Random seed: {args.seed}")
+    logger.info(f"Datasets: {', '.join(args.datasets)}")
     
     success_count = 0
     
     for dataset in args.datasets:
-        # 统一转换为大写（数据目录是大写的）
+        # Uniform conversion to uppercase (data directory is uppercase)
         dataset_upper = dataset.upper()
         source_root = Path(args.source_data) / dataset_upper
         target_root = Path(args.target_data) / dataset_upper
@@ -291,23 +291,23 @@ def main():
         if success:
             success_count += 1
         
-        print()  # 空行分隔
+        print()  # Empty line separator
     
-    # 最终汇总
+    # Final summary
     logger.info("=" * 80)
-    logger.info("汇总")
+    logger.info("Summary")
     logger.info("=" * 80)
-    logger.info(f"成功: {success_count}/{len(args.datasets)}")
-    logger.info(f"子集数据保存到: {args.target_data}/")
-    logger.info(f"子集信息文件: {args.target_data}/*_subset_info.json")
+    logger.info(f"Success: {success_count}/{len(args.datasets)}")
+    logger.info(f"Subset data saved to: {args.target_data}/")
+    logger.info(f"Subset info files: {args.target_data}/*_subset_info.json")
     
     if success_count == len(args.datasets):
-        logger.info("\n🎉 所有子集准备完成！")
-        logger.info("\n下一步:")
-        logger.info("  1. 检查子集信息: cat data_subset/*_subset_info.json")
-        logger.info("  2. 运行实验: python reproduce_experiments.py --mode all")
+        logger.info("\n🎉 All subset preparation complete!")
+        logger.info("\nNext steps:")
+        logger.info("  1. Check subset info: cat data_subset/*_subset_info.json")
+        logger.info("  2. Run experiment: python reproduce_experiments.py --mode all")
     else:
-        logger.error("\n❌ 部分数据集处理失败")
+        logger.error("\n❌ Some datasets failed to process")
         sys.exit(1)
 
 

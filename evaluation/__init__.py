@@ -1,6 +1,6 @@
 """
-评估模块
-包含emotion2vec分类器、码率扫描、层数扫描和结果分析
+Evaluation module
+Contains emotion2vec classifier, bitrate sweep, layer sweep and result analysis
 """
 
 try:
@@ -9,7 +9,7 @@ try:
     from .method_layer_sweep import layer_sweep_evaluation
     from .analyzer import ResultAnalyzer
 except ImportError as e:
-    # 如果相对导入失败，尝试绝对导入
+    # If relative import fails, try absolute import
     import sys
     from pathlib import Path
     parent = Path(__file__).parent

@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-生成论文所需的5张关键图表
+Generate 5 key figures required for paper
 
-用法:
+Usage:
     python generate_paper_figures.py
 
-生成图表:
-    1. Overall Weighted F1 Score Comparison (3数据集对比)
-    2. Overall Model Confidence Comparison (3数据集对比)
-    3. Per-class Accuracy by Emotion (3数据集垂直布局)
-    4. Model Confidence by Emotion (3数据集垂直布局)
-    5. Confusion Matrices 3×4 Grid (3数据集×4码率点)
+Generated figures:
+    1. Overall Weighted F1 Score Comparison (3 datasets comparison)
+    2. Overall Model Confidence Comparison (3 datasets comparison)
+    3. Per-class Accuracy by Emotion (3 datasets vertical layout)
+    4. Model Confidence by Emotion (3 datasets vertical layout)
+    5. Confusion Matrices 3×4 Grid (3 datasets × 4 rate points)
 """
 
 import json
@@ -23,16 +23,16 @@ import seaborn as sns
 from collections import defaultdict
 import sys
 
-# 设置绘图风格
+# Set plotting style
 plt.rcParams['font.sans-serif'] = ['Arial', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 plt.rcParams['font.size'] = 12
 
-# 统一颜色方案
+# Unified color scheme
 DATASET_COLORS = {
-    'ESD': '#E53935',      # 红色
-    'IEMOCAP': '#1E88E5',  # 蓝色
-    'RAVDESS': '#43A047'   # 绿色
+    'ESD': '#E53935',      # Red
+    'IEMOCAP': '#1E88E5',  # Blue
+    'RAVDESS': '#43A047'   # Green
 }
 
 EMOTION_COLORS = {
@@ -47,20 +47,20 @@ EMOTION_COLORS = {
     'excited': '#ffee58'
 }
 
-# 数据集配置
+# Dataset configuration
 DATASETS = ['ESD', 'IEMOCAP', 'RAVDESS']
 DATA_DIR = Path('evaluation_results')
 OUTPUT_DIR = Path('evaluation_results/figures')
 
-# 确保输出目录存在
+# Ensure output directory exists
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def load_dataset_results(dataset_name):
-    """加载数据集的评估结果"""
+    """Load dataset evaluation results"""
     json_file = DATA_DIR / f"{dataset_name}_evaluation_results.json"
     if not json_file.exists():
-        print(f"⚠️  未找到 {dataset_name} 的评估结果: {json_file}")
+        print(f"⚠️  Could not find {dataset_name} evaluation results: {json_file}")
         return None
     
     with open(json_file, 'r') as f:
@@ -68,7 +68,7 @@ def load_dataset_results(dataset_name):
 
 
 def calculate_metrics_with_ci(data, metric_key='accuracy', confidence_level=0.95):
-    """计算指标和置信区间"""
+    """Calculate metrics and confidence intervals"""
     results = {'rates': [], 'values': [], 'lower_bounds': [], 'upper_bounds': []}
     
     for rate_key, rate_point in sorted(data['rate_points'].items(), 
@@ -81,7 +81,7 @@ def calculate_metrics_with_ci(data, metric_key='accuracy', confidence_level=0.95
         elif metric_key == 'confidence':
             values = [s['confidence'] for s in samples]
         elif metric_key == 'f1':
-            # 从rate_point中获取F1分数
+            # Get F1 score from rate_point
             values = [rate_point.get('f1_score', rate_point.get('accuracy', 0))]
         else:
             continue
@@ -109,9 +109,9 @@ def calculate_metrics_with_ci(data, metric_key='accuracy', confidence_level=0.95
 
 
 def figure1_weighted_f1_comparison():
-    """图1: Overall Weighted F1 Score Comparison"""
+    """Figure 1: Overall Weighted F1 Score Comparison"""
     print("\n" + "="*70)
-    print("生成图1: Overall Weighted F1 Score Comparison")
+    print("Generating Figure 1: Overall Weighted F1 Score Comparison")
     print("="*70)
     
     fig, ax = plt.subplots(figsize=(12, 7))
@@ -142,13 +142,13 @@ def figure1_weighted_f1_comparison():
     plt.savefig(output_file, dpi=300, bbox_inches='tight', facecolor='white')
     plt.close()
     
-    print(f"✅ 已保存: {output_file}")
+    print(f"✅ Saved: {output_file}")
 
 
 def figure2_model_confidence_comparison():
-    """图2: Overall Model Confidence Comparison"""
+    """Figure 2: Overall Model Confidence Comparison"""
     print("\n" + "="*70)
-    print("生成图2: Overall Model Confidence Comparison")
+    print("Generating Figure 2: Overall Model Confidence Comparison")
     print("="*70)
     
     fig, ax = plt.subplots(figsize=(12, 7))
@@ -179,11 +179,11 @@ def figure2_model_confidence_comparison():
     plt.savefig(output_file, dpi=300, bbox_inches='tight', facecolor='white')
     plt.close()
     
-    print(f"✅ 已保存: {output_file}")
+    print(f"✅ Saved: {output_file}")
 
 
 def calculate_emotion_accuracy_with_ci(data, confidence_level=0.95):
-    """计算各情感的准确率和置信区间"""
+    """Calculate accuracy and confidence intervals for each emotion"""
     emotion_labels = data.get('ev2_emotion_labels', [])
     target_rates = sorted(set(rp['target_rate_bpf'] for rp in data['rate_points'].values()))
     
@@ -230,9 +230,9 @@ def calculate_emotion_accuracy_with_ci(data, confidence_level=0.95):
 
 
 def figure3_emotion_accuracy_vertical():
-    """图3: Per-class Accuracy by Emotion (垂直布局)"""
+    """Figure 3: Per-class Accuracy by Emotion (Vertical Layout)"""
     print("\n" + "="*70)
-    print("生成图3: Per-class Accuracy by Emotion (Vertical Layout)")
+    print("Generating Figure 3: Per-class Accuracy by Emotion (Vertical Layout)")
     print("="*70)
     
     fig, axes = plt.subplots(3, 1, figsize=(16, 18), sharex=True)
@@ -272,11 +272,11 @@ def figure3_emotion_accuracy_vertical():
     plt.savefig(output_file, dpi=300, bbox_inches='tight', facecolor='white')
     plt.close()
     
-    print(f"✅ 已保存: {output_file}")
+    print(f"✅ Saved: {output_file}")
 
 
 def calculate_emotion_confidence_with_ci(data, confidence_level=0.95):
-    """计算各情感的模型置信度"""
+    """Calculate model confidence for each emotion"""
     emotion_labels = data.get('ev2_emotion_labels', [])
     target_rates = sorted(set(rp['target_rate_bpf'] for rp in data['rate_points'].values()))
     
@@ -324,9 +324,9 @@ def calculate_emotion_confidence_with_ci(data, confidence_level=0.95):
 
 
 def figure4_emotion_confidence_vertical():
-    """图4: Model Confidence by Emotion (垂直布局)"""
+    """Figure 4: Model Confidence by Emotion (Vertical Layout)"""
     print("\n" + "="*70)
-    print("生成图4: Model Confidence by Emotion (Vertical Layout)")
+    print("Generating Figure 4: Model Confidence by Emotion (Vertical Layout)")
     print("="*70)
     
     fig, axes = plt.subplots(3, 1, figsize=(16, 18), sharex=True)
@@ -366,11 +366,11 @@ def figure4_emotion_confidence_vertical():
     plt.savefig(output_file, dpi=300, bbox_inches='tight', facecolor='white')
     plt.close()
     
-    print(f"✅ 已保存: {output_file}")
+    print(f"✅ Saved: {output_file}")
 
 
 def get_confusion_matrix_at_rate(data, target_bpf):
-    """获取指定码率点的混淆矩阵"""
+    """Get confusion matrix at specified bitrate point"""
     for rate_key, rate_point in data['rate_points'].items():
         if abs(rate_point['target_rate_bpf'] - target_bpf) < 0.1:
             samples = rate_point['samples']
@@ -387,14 +387,14 @@ def get_confusion_matrix_at_rate(data, target_bpf):
 
 
 def format_value(value):
-    """格式化混淆矩阵中的值"""
+    """Format values in confusion matrix"""
     return "0" if value == 0 else f"{value:.2f}"
 
 
 def figure5_confusion_matrices_3x4():
-    """图5: Confusion Matrices 3×4 Grid"""
+    """Figure 5: Confusion Matrices 3×4 Grid"""
     print("\n" + "="*70)
-    print("生成图5: Confusion Matrices 3×4 Grid")
+    print("Generating Figure 5: Confusion Matrices 3×4 Grid")
     print("="*70)
     
     RATES = [10, 20, 100, 200]
@@ -423,16 +423,16 @@ def figure5_confusion_matrices_3x4():
                 ax.set_yticks([])
                 continue
             
-            # 行归一化
+            # Row normalization
             cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
             cm_normalized = np.nan_to_num(cm_normalized)
             
-            # 绘制热图
+            # Draw heatmap
             im = ax.imshow(cm_normalized, cmap='Blues', aspect='auto', vmin=0, vmax=1)
             if im_for_colorbar is None:
                 im_for_colorbar = im
             
-            # 添加文字标注
+            # Add text annotations
             for i in range(len(labels)):
                 for j in range(len(labels)):
                     value = cm_normalized[i, j]
@@ -441,38 +441,38 @@ def figure5_confusion_matrices_3x4():
                            ha='center', va='center', color=text_color,
                            fontsize=9, fontweight='bold')
             
-            # 设置标签
+            # Set labels
             ax.set_xticks(range(len(labels)))
             ax.set_yticks(range(len(labels)))
             
-            if row_idx == 2:  # 最后一行
+            if row_idx == 2:  # Last row
                 ax.set_xticklabels(labels, rotation=45, ha='right', fontsize=10)
             else:
                 ax.set_xticklabels([])
             
-            if col_idx == 0:  # 第一列
+            if col_idx == 0:  # First column
                 ax.set_yticklabels(labels, fontsize=10)
             else:
                 ax.set_yticklabels([])
             
-            # 标题
+            # Title
             title = f"{rate} BPF"
             if accuracy is not None:
                 title += f"\n(Acc: {accuracy*100:.1f}%)"
             ax.set_title(title, fontsize=12, fontweight='bold', pad=10)
         
-        # 行标签
+        # Row labels
         axes[row_idx, 0].set_ylabel(f'{dataset}\n\nTrue Label',
                                      fontsize=13, fontweight='bold', labelpad=20)
     
-    # 列标签
+    # Column labels
     for col_idx in range(4):
         axes[2, col_idx].set_xlabel('Predicted Label', fontsize=11, fontweight='bold', labelpad=10)
     
     fig.suptitle('Confusion Matrices across Datasets and Bitrates\n(Row-normalized, showing Recall)',
                 fontsize=18, fontweight='bold', y=0.995)
     
-    # 添加colorbar
+    # Add colorbar
     if im_for_colorbar is not None:
         cbar_ax = fig.add_axes([0.92, 0.15, 0.015, 0.7])
         cbar = fig.colorbar(im_for_colorbar, cax=cbar_ax, orientation='vertical')
@@ -484,18 +484,18 @@ def figure5_confusion_matrices_3x4():
     plt.savefig(output_file, dpi=300, bbox_inches='tight', facecolor='white')
     plt.close()
     
-    print(f"✅ 已保存: {output_file}")
+    print(f"✅ Saved: {output_file}")
 
 
 def main():
     print("="*70)
-    print("生成论文5张关键图表")
+    print("Generate 5 key figures for paper")
     print("="*70)
-    print(f"数据目录: {DATA_DIR}")
-    print(f"输出目录: {OUTPUT_DIR}")
+    print(f"Data directory: {DATA_DIR}")
+    print(f"Output directory: {OUTPUT_DIR}")
     print()
     
-    # 检查数据文件
+    # Check data files
     missing_datasets = []
     for dataset in DATASETS:
         json_file = DATA_DIR / f"{dataset}_evaluation_results.json"
@@ -503,11 +503,11 @@ def main():
             missing_datasets.append(dataset)
     
     if missing_datasets:
-        print(f"⚠️  警告: 以下数据集缺少评估结果: {', '.join(missing_datasets)}")
-        print(f"   将跳过这些数据集的绘图")
+        print(f"⚠️  Warning: Missing evaluation results for datasets: {', '.join(missing_datasets)}")
+        print(f"   Skipping plotting for these datasets")
         print()
     
-    # 生成5张图
+    # Generate 5 figures
     try:
         figure1_weighted_f1_comparison()
         figure2_model_confidence_comparison()
@@ -516,17 +516,17 @@ def main():
         figure5_confusion_matrices_3x4()
         
         print("\n" + "="*70)
-        print("✅ 所有5张图表生成完成！")
+        print("✅ All 5 figures generated successfully!")
         print("="*70)
-        print(f"\n图表保存位置: {OUTPUT_DIR}/")
-        print("\n生成的文件:")
+        print(f"\nFigures saved to: {OUTPUT_DIR}/")
+        print("\nGenerated files:")
         for i in range(1, 6):
             files = list(OUTPUT_DIR.glob(f"{i}_*.png"))
             if files:
                 print(f"  {i}. {files[0].name}")
         
     except Exception as e:
-        print(f"\n❌ 生成图表时出错: {e}")
+        print(f"\n❌ Error generating figures: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

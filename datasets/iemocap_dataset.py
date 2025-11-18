@@ -1,5 +1,5 @@
 """
-IEMOCAP数据集实现
+IEMOCAP dataset implementation
 """
 
 from pathlib import Path
@@ -16,20 +16,20 @@ logger = logging.getLogger(__name__)
 
 class IEMOCAPDataset(EmotionDataset):
     """
-    IEMOCAP数据集
+    IEMOCAP dataset
     
-    特点：
-    - 10类情感（排除xxx后）
-    - 有frustrated, excited等特殊标签
-    - 样本数：~7,266（排除xxx后）
+    Characteristics:
+    - 10 emotion classes (after excluding xxx)
+    - Has special labels like frustrated, excited
+    - Sample count: ~7,266 (after excluding xxx)
     """
     
     def __init__(self, data_root: str, samples_per_emotion: int = 100):
         super().__init__(data_root)
-        self._num_classes = 10  # 有效情感类别数（排除xxx）
+        self._num_classes = 10  # Valid emotion categories (excluding xxx)
         self.samples_per_emotion = samples_per_emotion
         
-        # 加载样本
+        # Load samples
         self.samples = self.load_samples()
     
     @property
@@ -42,15 +42,15 @@ class IEMOCAPDataset(EmotionDataset):
     
     def get_emotion_mapping(self) -> Dict[str, str]:
         """
-        IEMOCAP标签 -> emotion2vec 9类映射
+        IEMOCAP label -> emotion2vec 9 classes mapping
         
-        映射策略：
+        Mapping strategy:
         - ang → angry ✓
         - hap → happy ✓
         - sad → sad ✓
         - neu → neutral ✓
-        - fru → angry  # TODO: 用户确认（当前frustrated→angry，但分析显示应映射到neutral）
-        - exc → happy  # TODO: 用户确认（当前excited→happy，分析显示正确）
+        - fru → angry  # TODO: User confirmation (currently frustrated→angry, but analysis suggests should map to neutral)
+        - exc → happy  # TODO: User confirmation (currently excited→happy, analysis shows correct)
         - sur → surprised
         - fea → fearful
         - dis → disgusted
@@ -58,39 +58,39 @@ class IEMOCAPDataset(EmotionDataset):
         """
         return {
             'ang': 'angry',
-            'angry': 'angry',      # 已映射的标签
+            'angry': 'angry',      # Already mapped label
             'hap': 'happy',
-            'happy': 'happy',      # 已映射的标签
+            'happy': 'happy',      # Already mapped label
             'sad': 'sad',
             'neu': 'neutral',
-            'neutral': 'neutral',  # 已映射的标签
-            'fru': 'angry',       # TODO: 用户确认映射策略
-            'exc': 'happy',       # TODO: 用户确认映射策略
+            'neutral': 'neutral',  # Already mapped label
+            'fru': 'angry',       # TODO: User confirm mapping strategy
+            'exc': 'happy',       # TODO: User confirm mapping strategy
             'sur': 'surprised',
-            'surprised': 'surprised',  # 已映射的标签
+            'surprised': 'surprised',  # Already mapped label
             'fea': 'fearful',
-            'fearful': 'fearful',  # 已映射的标签
+            'fearful': 'fearful',  # Already mapped label
             'dis': 'disgusted',
-            'disgusted': 'disgusted',  # 已映射的标签
+            'disgusted': 'disgusted',  # Already mapped label
             'oth': 'other',
-            'other': 'other',      # 已映射的标签
+            'other': 'other',      # Already mapped label
         }
     
     def get_emotion_filter(self) -> Optional[List[str]]:
         """
-        返回启用的情感类别
+        Return enabled emotion categories
         
-        默认：None（使用全部，但排除'xxx'）
-        TODO: 用户后续可能只使用部分情感（如只用4类核心情感）
+        Default: None (use all, but exclude 'xxx')
+        TODO: User may only use some emotions later (e.g. only 4 core emotions)
         """
-        # 默认使用全部，排除'xxx'（未知标签）
-        return None  # TODO: 用户后续配置
+        # Default use all, exclude 'xxx' (unknown label)
+        return None  # TODO: User configuration later
     
     def load_samples(self) -> List[Dict]:
         """
-        加载IEMOCAP样本（从已提取的特征文件）
+        Load IEMOCAP samples (from already extracted features files)
         
-        evaluation_features/IEMOCAP/目录结构：
+        evaluation_features/IEMOCAP/ directory structure:
             Session1/
                 Ses01F_impro01/
                     Ses01F_impro01_F000_ev2_frame.npy
@@ -98,7 +98,7 @@ class IEMOCAPDataset(EmotionDataset):
         """
         samples = []
         
-        # 直接查找所有*_ev2_frame.npy文件
+        # Directly search for all *_ev2_frame.npy files
         feature_files = list(self.data_root.glob("**/*_ev2_frame.npy"))
         
         for feat_file in feature_files:
@@ -110,11 +110,11 @@ class IEMOCAPDataset(EmotionDataset):
             with open(label_file) as f:
                 emotion = f.read().strip()
             
-            # 从文件名解析说话人
+            # Parse speaker from filename
             utterance_id = feat_file.stem.replace('_ev2_frame', '')
-            speaker_id = utterance_id.split('_')[0]  # 如Ses01F
+            speaker_id = utterance_id.split('_')[0]  # e.g. Ses01F
             
-            # 兼容method_rate_sweep.py
+            # Compatible with method_rate_sweep.py
             fake_audio_path = str(feat_file).replace('_ev2_frame.npy', '.wav')
             
             sample = {
@@ -124,25 +124,25 @@ class IEMOCAPDataset(EmotionDataset):
             }
             samples.append(sample)
         
-        # 应用emotion_filter
+        # Apply emotion_filter
         samples = self.filter_samples_by_emotion(samples)
         
-        logger.info(f"✅ IEMOCAP: 加载了 {len(samples)} 个样本")
+        logger.info(f"✅ IEMOCAP: Loaded {len(samples)} samples")
         
-        # 采样（随机种子1344871保证可复现）
+        # Sample (random seed 1344871 ensures reproducibility)
         samples = self.sample_balanced(samples, samples_per_emotion=self.samples_per_emotion, seed=1344871)
-        logger.info(f"   采样后: {len(samples)} 个样本（每类{self.samples_per_emotion}）")
+        logger.info(f"   After sampling: {len(samples)} samples ({self.samples_per_emotion} per class)")
         
         return samples
     
     def _parse_emotion_from_filename(self, filename: str) -> str:
         """
-        从文件名解析情感标签
+        Parse emotion label from filename
         
-        IEMOCAP文件名格式通常包含情感信息
-        这里提供简化实现，实际需要根据数据集具体格式调整
+        IEMOCAP filename format usually contains emotion information
+        This is a simplified implementation, actual implementation needs to be adjusted according to dataset specific format
         """
-        # 简化实现：返回占位符
-        # TODO: 实际实现需要解析IEMOCAP的标注文件
-        return 'neu'  # 占位符
+        # Simplified implementation: return placeholder
+        # TODO: Actual implementation needs to parse IEMOCAP annotation file
+        return 'neu'  # placeholder
 

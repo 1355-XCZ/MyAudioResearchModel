@@ -1,19 +1,19 @@
-# 情感RVQ信息瓶颈项目依赖
+# Emotion RVQ Information Bottleneck Project Dependencies
 
-# 核心深度学习框架
+# Core deep learning framework
 torch>=2.0.0
 numpy>=1.24.0
 
-# RVQ向量量化
+# RVQ vector quantization
 vector-quantize-pytorch>=1.14.0
 
-# emotion2vec分类器
+# emotion2vec classifier
 funasr>=1.0.0
 
-# 配置管理
+# Configuration management
 pyyaml>=6.0
 
-# 数据处理和可视化
+# Data processing and visualization
 tqdm>=4.65.0
 matplotlib>=3.7.0
 seaborn>=0.12.0

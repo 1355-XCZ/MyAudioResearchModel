@@ -1,14 +1,14 @@
 """
-无条件自回归熵模型 q(z) - 发布版
-仅移除条件标签相关代码，所有其他科学逻辑完全保留
+Unconditional Autoregressive Entropy Model q(z) - Release Version
+Only removed conditional label-related code, all other scientific logic fully preserved
 
-核心功能完全保留：
-1. 右移输入（避免自我泄漏）
-2. 帧内AR（序列长度 = G×M，不是 T*G*M）
-3. SKIP非负化（id = K）
-4. 添加 group/layer 嵌入
-5. predict_next_token_prob（ECVQ判决）
-6. 所有计算和训练方法
+Core Features fully preserved:
+1. Right-shift input (avoid self-leakage)
+2. Intra-frame AR (sequence length = G×M, not T*G*M)
+3. SKIP non-negative (id = K)
+4. Add group/layer embedding
+5. predict_next_token_prob (ECVQ decision)
+6. All computation and training methods
 """
 
 import torch
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class PositionalEncoding(nn.Module):
-    """正弦位置编码（帧内位置）"""
+    """Sinusoidal positional encoding (intra-frame position)"""
     
     def __init__(self, d_model: int, max_len: int = 100):
         super().__init__()
@@ -40,7 +40,7 @@ class PositionalEncoding(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Args:
-            x: (B, L, D) 其中 L = 帧内序列长度
+            x: (B, L, D) where L = intra-frame sequence length
         Returns:
             (B, L, D)
         """
@@ -49,54 +49,54 @@ class PositionalEncoding(nn.Module):
 
 class AutoregressiveEntropyModel(nn.Module):
     """
-    无条件自回归熵模型（帧内AR）- 仅 q(z)
+    Unconditional Autoregressive Entropy Model (intra-frame AR) - only q(z)
     
-    修复点：
-    1. 序列 = 每帧的 (G×M) 个token（不是跨帧）
-    2. 输入右移一位，避免自我泄漏
-    3. SKIP id = K（非负）
-    4. 添加 group/layer 位置嵌入
+    Fix points:
+    1. Sequence = (G×M) tokens per frame (not cross-frame)
+    2. Input right-shifted by one position, avoid self-leakage
+    3. SKIP id = K (non-negative)
+    4. Add group/layer position embedding
     """
     
     def __init__(self, config, rvq_config):
         """
         Args:
-            config: EntropyModelConfig实例
-            rvq_config: GroupedRVQConfig实例
+            config: EntropyModelConfig instance
+            rvq_config: GroupedRVQConfig instance
         """
         super().__init__()
         self.config = config
         self.rvq_config = rvq_config
         
-        # 词表大小
-        self.K = rvq_config.fine_codebook_size  # 码本大小
-        self.SKIP_ID = self.K                   # SKIP 使用 K（非负）
-        self.V = self.K + 1                     # 词表 = K个码 + 1个SKIP
-        self.BOS_ID = self.V                    # BOS（输入专用）
+        # Vocabulary size
+        self.K = rvq_config.fine_codebook_size  # codebook size
+        self.SKIP_ID = self.K                   # SKIP uses K (non-negative)
+        self.V = self.K + 1                     # vocabulary = K codes + 1 SKIP
+        self.BOS_ID = self.V                    # BOS (input only)
         
-        # 帧内序列长度
+        # Intra-frame sequence length
         self.num_groups = rvq_config.num_groups
         self.num_layers_per_group = rvq_config.num_fine_layers
-        self.L = self.num_groups * self.num_layers_per_group  # 帧内长度
+        self.L = self.num_groups * self.num_layers_per_group  # intra-frame length
         
-        # Token Embedding（包含BOS）
+        # Token Embedding (including BOS)
         self.token_embedding = nn.Embedding(
-            num_embeddings=self.V + 1,  # V个输出类 + 1个BOS
+            num_embeddings=self.V + 1,  # V output classes + 1 BOS
             embedding_dim=config.d_model
         )
         
-        # 位置编码（帧内）
+        # Positional encoding (intra-frame)
         self.pos_encoding = PositionalEncoding(config.d_model, max_len=self.L)
         
-        # Group/Layer 嵌入（让模型知道"这是哪个组/层"）
+        # Group/Layer embedding (let model know "which group/layer this is")
         self.group_embedding = nn.Embedding(self.num_groups, config.d_model)
         self.layer_embedding = nn.Embedding(self.num_layers_per_group, config.d_model)
         
-        # 预计算 group_ids 和 layer_ids（固定顺序）
+        # Pre-compute group_ids and layer_ids (fixed order)
         self.register_buffer('group_ids', self._create_group_ids())
         self.register_buffer('layer_ids', self._create_layer_ids())
         
-        # Transformer编码器（因果掩码）
+        # Transformer encoder (causal mask)
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=config.d_model,
             nhead=config.num_heads,
@@ -110,32 +110,32 @@ class AutoregressiveEntropyModel(nn.Module):
             num_layers=config.num_layers
         )
         
-        # 输出层：预测下一个token（输出类数 = V，不含BOS）
+        # Output layer: predict next token (output classes = V, excluding BOS)
         self.output_proj = nn.Linear(config.d_model, self.V)
         
-        # 无条件模型标记
+        # Unconditional model marker
         self.condition_on_label = False
         
-        # 缓存因果掩码（恒定帧内长度 L，避免重复构造和传输）
+        # Cache causal mask (constant intra-frame length L, avoid repeated construction and transfer)
         self.register_buffer(
             "causal_mask_buf",
             self.generate_causal_mask(self.L, device=torch.device("cpu"))
         )
         
-        # Mask缓存（ChatGPT建议 - 避免每次重建）
+        # Mask cache (ChatGPT suggestion - avoid rebuilding each time)
         self._mask_cache = {}
 
-        logger.info(f"✅ AutoregressiveEntropyModel 初始化（无条件版本 - 仅 q(z)）:")
-        logger.info(f"   - 词表: V={self.V} (K={self.K} + SKIP={self.SKIP_ID})")
-        logger.info(f"   - 帧内序列长度: L={self.L} ({self.num_groups}组 × {self.num_layers_per_group}层)")
+        logger.info(f"✅ AutoregressiveEntropyModel initialized (unconditional version - only q(z)):")
+        logger.info(f"   - Vocabulary: V={self.V} (K={self.K} + SKIP={self.SKIP_ID})")
+        logger.info(f"   - Intra-frame sequence length: L={self.L} ({self.num_groups} groups × {self.num_layers_per_group} layers)")
         logger.info(f"   - BOS id: {self.BOS_ID}")
-        logger.info(f"   - 因果掩码缓存: 已注册为 buffer")
+        logger.info(f"   - Causal mask cache: registered as buffer")
     
     def _create_group_ids(self) -> torch.Tensor:
         """
-        创建固定的 group_ids 序列
-        顺序：g 外层，m 内层
-        例如 G=2, M=3: [0,0,0, 1,1,1]
+        Create fixed group_ids sequence
+        Order: g outer, m inner
+        Example G=2, M=3: [0,0,0, 1,1,1]
         """
         ids = []
         for g in range(self.num_groups):
@@ -145,9 +145,9 @@ class AutoregressiveEntropyModel(nn.Module):
     
     def _create_layer_ids(self) -> torch.Tensor:
         """
-        创建固定的 layer_ids 序列
-        顺序：g 外层，m 内层
-        例如 G=2, M=3: [0,1,2, 0,1,2]
+        Create fixed layer_ids sequence
+        Order: g outer, m inner
+        Example G=2, M=3: [0,1,2, 0,1,2]
         """
         ids = []
         for g in range(self.num_groups):
@@ -158,53 +158,53 @@ class AutoregressiveEntropyModel(nn.Module):
     def forward(
         self,
         indices: torch.Tensor,
-        labels: Optional[torch.Tensor] = None  # 保留参数接口兼容性，但不使用
+        labels: Optional[torch.Tensor] = None  # Keep parameter interface compatibility, but not using
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        前向传播（训练用，教师强制）
+        Forward pass (for training, teacher forcing)
         
         Args:
-            indices: (B, T, L) 码本索引序列
-                     其中 L = num_groups * num_layers_per_group
-            labels: (B,) 保留参数兼容性，无条件模型不使用
+            indices: (B, T, L) codebook index sequence
+                     where L = num_groups * num_layers_per_group
+            labels: (B,) keep parameter compatibility, unconditional model not using
         
         Returns:
-            logits: (B*T, L, V) 预测分布
-            targets: (B*T, L) 目标索引
+            logits: (B*T, L, V) predicted distribution
+            targets: (B*T, L) target indices
         """
         B, T, L = indices.shape
-        assert L == self.L, f"期望 L={self.L}，实际 L={L}"
+        assert L == self.L, f"Expected L={self.L}, got L={L}"
         
-        # 展平为帧内序列: (B*T, L)
+        # Flatten as intra-frame sequence: (B*T, L)
         seq = indices.view(B * T, L)
         
-        # 统一 SKIP 编码：-1 → K
+        # Unified SKIP encoding: -1 → K
         seq = torch.where(seq < 0, torch.full_like(seq, self.SKIP_ID), seq)
         
-        # 输入 = 右移一位（第0位用BOS）
+        # Input = right-shifted by one position (position 0 uses BOS)
         inp = torch.roll(seq, shifts=1, dims=1)
         inp[:, 0] = self.BOS_ID
         
         # Token Embedding
         x = self.token_embedding(inp)  # (B*T, L, d_model)
         
-        # 添加位置编码（帧内）
+        # Add positional encoding (intra-frame)
         x = self.pos_encoding(x)
         
-        # 添加 group/layer 嵌入（让模型知道位置）
+        # Add group/layer embedding (let model know position)
         x = x + self.group_embedding(self.group_ids).unsqueeze(0)  # broadcast (1, L, d) → (B*T, L, d)
         x = x + self.layer_embedding(self.layer_ids).unsqueeze(0)
         
-        # 因果掩码（帧内，使用缓存）
+        # Causal mask (intra-frame, use cache)
         causal_mask = self.causal_mask_buf.to(x.device, non_blocking=True)
         
         # Transformer
         x = self.transformer(x, mask=causal_mask)  # (B*T, L, d_model)
         
-        # 预测下一个token
+        # Predict next token
         logits = self.output_proj(x)  # (B*T, L, V)
         
-        # 目标：原序列（非右移）
+        # Target: original sequence (not right-shifted)
         targets = seq  # (B*T, L)
         
         return logits, targets
@@ -212,41 +212,41 @@ class AutoregressiveEntropyModel(nn.Module):
     def compute_nll(
         self,
         indices: torch.Tensor,
-        labels: Optional[torch.Tensor] = None,  # 保留参数兼容性
+        labels: Optional[torch.Tensor] = None,  # Keep parameter compatibility
         valid_mask: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
         """
-        计算负对数似然 -log q(z)（支持 padding 屏蔽）
+        Compute negative log likelihood -log q(z) (support padding masking)
         
         Args:
-            indices: (B, T, L) 码本索引
-            labels: (B,) 保留参数兼容性，无条件模型不使用
-            valid_mask: (B, T) bool tensor，标记有效帧（屏蔽padding）
+            indices: (B, T, L) codebook indices
+            labels: (B,) keep parameter compatibility, unconditional model not using
+            valid_mask: (B, T) bool tensor, marking valid frames (mask padding)
         
         Returns:
-            nll_per_sample: (B,) 每个样本的NLL（bits，只统计有效帧）
+            nll_per_sample: (B,) NLL per sample (bits, only count valid frames)
         """
         B, T, L = indices.shape
         
-        # 前向传播
+        # Forward pass
         logits, targets = self.forward(indices, labels)  # logits: (B*T, L, V), targets: (B*T, L)
         
-        # 计算交叉熵（每个位置）
+        # Compute cross entropy (each position)
         logits_flat = logits.reshape(-1, self.V)  # (B*T*L, V)
         targets_flat = targets.reshape(-1)  # (B*T*L,)
         
         ce = F.cross_entropy(logits_flat, targets_flat, reduction='none')  # (B*T*L,)
         ce = ce.view(B, T, L)  # (B, T, L)
         
-        # 转换为bits（log₂）
+        # Convert to bits (log₂)
         nll_bits = ce / math.log(2)  # (B, T, L)
         
-        # 应用 valid_mask（只统计有效帧）
+        # Apply valid_mask (only count valid frames)
         if valid_mask is not None:
             mask = valid_mask.unsqueeze(-1).float()  # (B, T, 1)
             nll_bits = nll_bits * mask  # (B, T, L)
         
-        # 求和（每个样本，只统计有效帧）
+        # Sum (per sample, only count valid frames)
         nll_per_sample = nll_bits.sum(dim=(1, 2))  # (B,)
         
         return nll_per_sample
@@ -254,16 +254,16 @@ class AutoregressiveEntropyModel(nn.Module):
     def compute_bits(
         self,
         indices: torch.Tensor,
-        labels: Optional[torch.Tensor] = None,  # 保留参数兼容性
+        labels: Optional[torch.Tensor] = None,  # Keep parameter compatibility
         valid_mask: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
         """
-        计算编码所需总bits（整个batch，只统计有效帧）
+        Compute total bits required for encoding (whole batch, only count valid frames)
         
         Args:
-            indices: (B, T, L) 码本索引
-            labels: (B,) 保留参数兼容性，无条件模型不使用
-            valid_mask: (B, T) bool tensor，标记有效帧
+            indices: (B, T, L) codebook indices
+            labels: (B,) keep parameter compatibility, unconditional model not using
+            valid_mask: (B, T) bool tensor, marking valid frames
         
         Returns:
             total_bits: scalar tensor
@@ -275,26 +275,26 @@ class AutoregressiveEntropyModel(nn.Module):
         self,
         indices: torch.Tensor,
         frame_rate_hz: float = 50.0,
-        labels: Optional[torch.Tensor] = None,  # 保留参数兼容性
+        labels: Optional[torch.Tensor] = None,  # Keep parameter compatibility
         valid_mask: Optional[torch.Tensor] = None
     ) -> float:
         """
-        计算码率（bits per second，只统计有效帧）
+        Compute bitrate (bits per second, only count valid frames)
         
         Args:
-            indices: (B, T, L) 码本索引
-            frame_rate_hz: 帧率（Hz）
-            labels: (B,) 保留参数兼容性，无条件模型不使用
-            valid_mask: (B, T) bool tensor，标记有效帧
+            indices: (B, T, L) codebook indices
+            frame_rate_hz: frame rate (Hz)
+            labels: (B,) keep parameter compatibility, unconditional model not using
+            valid_mask: (B, T) bool tensor, marking valid frames
         
         Returns:
-            rate_bps: 码率（bps）
+            rate_bps: bitrate (bps)
         """
         B, T, L = indices.shape
         
         total_bits = self.compute_bits(indices, labels, valid_mask).item()
         
-        # 计算有效时长（只统计有效帧）
+        # Compute valid duration (only count valid frames)
         if valid_mask is not None:
             total_valid_frames = valid_mask.sum().item()
         else:
@@ -308,28 +308,28 @@ class AutoregressiveEntropyModel(nn.Module):
     def predict_next_token_prob(
         self,
         indices_history: torch.Tensor,
-        labels: Optional[torch.Tensor] = None  # 保留参数兼容性
+        labels: Optional[torch.Tensor] = None  # Keep parameter compatibility
     ) -> torch.Tensor:
         """
-        预测下一个token的概率分布（用于ECVQ判决）
+        Predict next token probability distribution (for ECVQ decision)
         
         Args:
-            indices_history: (B, L') 已有的索引序列（L' < L）
-            labels: (B,) 保留参数兼容性，无条件模型不使用
+            indices_history: (B, L') existing index sequence (L' < L)
+            labels: (B,) keep parameter compatibility, unconditional model not using
         
         Returns:
-            probs: (B, V) 下一个token的概率分布
+            probs: (B, V) next token probability distribution
         """
-        # ChatGPT建议：推理模式包装整个函数
+        # ChatGPT suggestion: inference mode wraps entire function
         with torch.inference_mode():
             B, L_prime = indices_history.shape
             
-            # 统一SKIP
+            # Unified SKIP
             seq = torch.where(indices_history < 0,
                              torch.full_like(indices_history, self.SKIP_ID),
                              indices_history)
             
-            # 添加BOS
+            # Add BOS
             inp = torch.cat([torch.full((B, 1), self.BOS_ID, device=seq.device, dtype=seq.dtype),
                             seq], dim=1)  # (B, L'+1)
             
@@ -337,19 +337,19 @@ class AutoregressiveEntropyModel(nn.Module):
             x = self.token_embedding(inp)
             x = self.pos_encoding(x)
             
-            # Group/layer嵌入（只到 L'+1）
+            # Group/layer embedding (only to L'+1)
             x = x + self.group_embedding(self.group_ids[:L_prime+1]).unsqueeze(0)
             x = x + self.layer_embedding(self.layer_ids[:L_prime+1]).unsqueeze(0)
             
-            # Transformer（因果掩码）
-            # ChatGPT建议：使用缓存mask（兼容旧checkpoint）
+            # Transformer (causal mask)
+            # ChatGPT suggestion: use cached mask (compatible with old checkpoint)
             if hasattr(self, '_get_causal_mask'):
                 mask = self._get_causal_mask(L_prime + 1, x.device)
             else:
                 mask = self.generate_causal_mask(L_prime + 1, x.device)
             x = self.transformer(x, mask=mask)
             
-            # 只取最后一个位置
+            # Only take last position
             logits = self.output_proj(x[:, -1, :])  # (B, V)
             probs = F.softmax(logits, dim=-1)
             
@@ -358,38 +358,38 @@ class AutoregressiveEntropyModel(nn.Module):
     @staticmethod
     def generate_causal_mask(seq_len: int, device: torch.device) -> torch.Tensor:
         """
-        生成因果掩码（上三角，float additive mask）
+        Generate causal mask (upper triangle, float additive mask)
         
         Args:
-            seq_len: 序列长度
-            device: 设备
+            seq_len: sequence length
+            device: device
         
         Returns:
-            mask: (seq_len, seq_len) float tensor，-inf 表示屏蔽
+            mask: (seq_len, seq_len) float tensor, -inf means masked
         """
         mask = torch.triu(torch.ones(seq_len, seq_len, device=device), diagonal=1)
         mask = mask.masked_fill(mask == 1, float('-inf'))
         mask = mask.masked_fill(mask == 0, 0.0)
-        return mask  # (L, L) float，更兼容不同 PyTorch 版本
+        return mask  # (L, L) float, more compatible with different PyTorch versions
 
 
 def create_entropy_model(config, rvq_config):
     """
-    创建无条件熵模型 q(z)
+    Create unconditional entropy model q(z)
     
     Args:
-        config: EntropyModelConfig实例
-        rvq_config: GroupedRVQConfig实例
+        config: EntropyModelConfig instance
+        rvq_config: GroupedRVQConfig instance
     
     Returns:
-        模型实例
+        model instance
     """
-    logger.info("创建无条件熵模型 q(z)")
+    logger.info("Creating unconditional entropy model q(z)")
     return AutoregressiveEntropyModel(config, rvq_config)
 
 
 # ============================================================================
-# 训练工具
+# Training utilities
 # ============================================================================
 
 def train_entropy_model_step(
@@ -399,35 +399,35 @@ def train_entropy_model_step(
     optimizer: torch.optim.Optimizer
 ) -> dict:
     """
-    单步训练熵模型
+    Single step entropy model training
     
     Args:
-        model: 熵模型
-        indices: (B, T, L) 码本索引
-        labels: (B,) 保留参数兼容性，无条件模型不使用
-        optimizer: 优化器
+        model: entropy model
+        indices: (B, T, L) codebook indices
+        labels: (B,) keep parameter compatibility, unconditional model not using
+        optimizer: optimizer
     
     Returns:
-        metrics: dict 训练指标
+        metrics: dict training metrics
     """
     model.train()
     optimizer.zero_grad()
     
-    # 前向传播
+    # Forward pass
     logits, targets = model(indices, labels)
     
-    # 计算损失
+    # Compute loss
     logits_flat = logits.reshape(-1, model.V)
     targets_flat = targets.reshape(-1)
     
     loss = F.cross_entropy(logits_flat, targets_flat)
     
-    # 反向传播
+    # Backward pass
     loss.backward()
     torch.nn.utils.clip_grad_norm_(model.parameters(), model.config.max_grad_norm)
     optimizer.step()
     
-    # 计算准确率
+    # Compute accuracy
     with torch.inference_mode():
         preds = logits_flat.argmax(dim=-1)
         acc = (preds == targets_flat).float().mean()
@@ -435,7 +435,7 @@ def train_entropy_model_step(
     metrics = {
         'loss': loss.item(),
         'acc': acc.item(),
-        'bpf': loss.item() / math.log(2),  # bits per frame（近似）
+        'bpf': loss.item() / math.log(2),  # bits per frame (approximate)
     }
 
     return metrics
